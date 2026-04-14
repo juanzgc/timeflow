@@ -1,0 +1,34 @@
+version: "3.8"
+ 
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: timeflow-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: timeflow
+      POSTGRES_USER: timeflow
+      POSTGRES_PASSWORD: timeflow_dev_2026
+    ports:
+      - "5433:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+ 
+volumes:
+  pgdata:
+ 
+# Usage:
+#   docker compose up -d        → starts PostgreSQL
+#   docker compose down         → stops it
+#   docker compose down -v      → stops and deletes all data
+#
+# Then run the Next.js app normally:
+#   npm run dev
+#
+# .env.local should contain:
+#   DATABASE_URL=postgresql://timeflow:timeflow_dev_2026@localhost:5433/timeflow
+#   BIOTIME_URL=https://biotime.zelavi.co
+#   BIOTIME_USERNAME=admin
+#   BIOTIME_PASSWORD=your_password
+#   NEXTAUTH_SECRET=your-random-secret-here
+#   NEXTAUTH_URL=http://localhost:3000
