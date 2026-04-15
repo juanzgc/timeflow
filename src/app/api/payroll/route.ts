@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { and, eq, gte, lte } from "drizzle-orm";
+import { and, desc, eq, gte, lte, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import {
   employees,
@@ -9,6 +9,32 @@ import {
 } from "@/drizzle/schema";
 import { auth } from "@/auth";
 import { reconcilePeriod, type DailyRecord } from "@/lib/engine/period-reconciler";
+
+/**
+ * GET /api/payroll
+ * List all payroll periods with aggregated stats.
+ */
+export async function GET() {
+  const session = await auth();
+  if (!session?.user) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const rows = await db
+    .select({
+      periodStart: payrollPeriods.periodStart,
+      periodEnd: payrollPeriods.periodEnd,
+      status: payrollPeriods.status,
+      employeeCount: sql<number>`count(*)::int`,
+      totalSurcharges: sql<number>`coalesce(sum(${payrollPeriods.totalSurcharges}::numeric), 0)::float`,
+      firstId: sql<number>`min(${payrollPeriods.id})::int`,
+    })
+    .from(payrollPeriods)
+    .groupBy(payrollPeriods.periodStart, payrollPeriods.periodEnd, payrollPeriods.status)
+    .orderBy(desc(payrollPeriods.periodStart));
+
+  return NextResponse.json(rows);
+}
 
 /**
  * POST /api/payroll/reconcile
