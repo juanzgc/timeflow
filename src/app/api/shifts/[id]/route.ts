@@ -46,6 +46,19 @@ export async function PUT(
     const autoCrosses = shiftEnd < shiftStart;
     const effectiveCrosses = crossesMidnight ?? autoCrosses;
 
+    // Reject shifts longer than 12 hours (likely a time entry mistake)
+    const startMins = timeToMins(shiftStart);
+    const endMins = timeToMins(shiftEnd);
+    const durationMins = effectiveCrosses
+      ? 1440 - startMins + endMins
+      : endMins - startMins;
+    if (durationMins > 720) {
+      return NextResponse.json(
+        { error: `Shift duration is ${Math.floor(durationMins / 60)}h ${durationMins % 60}m — maximum is 12 hours. Check that the times are correct.` },
+        { status: 400 },
+      );
+    }
+
     const siblings = await db
       .select()
       .from(shifts)

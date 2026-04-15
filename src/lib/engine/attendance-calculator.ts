@@ -205,6 +205,32 @@ async function calculateForEmployee(
     }
 
     if (dayShiftsAll.length === 0) {
+      // Clean up stale day-off / comp-day-off records left after shift deletion
+      const [stale] = await db
+        .select({
+          id: dailyAttendance.id,
+          status: dailyAttendance.status,
+          clockIn: dailyAttendance.clockIn,
+          clockOut: dailyAttendance.clockOut,
+        })
+        .from(dailyAttendance)
+        .where(
+          and(
+            eq(dailyAttendance.employeeId, emp.id),
+            eq(dailyAttendance.workDate, dateStr),
+          ),
+        )
+        .limit(1);
+
+      if (
+        stale &&
+        (stale.status === "day-off" || stale.status === "comp-day-off") &&
+        !stale.clockIn &&
+        !stale.clockOut
+      ) {
+        await db.delete(dailyAttendance).where(eq(dailyAttendance.id, stale.id));
+      }
+
       // No shifts scheduled — leave for Phase D if punches exist
       cursor = colAddDays(cursor, 1);
       continue;

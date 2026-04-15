@@ -34,6 +34,11 @@ export function floorTo15Min(minutes: number): number {
   return Math.floor(minutes / 15) * 15;
 }
 
+/** Ceil to nearest 15-minute block */
+export function ceilTo15Min(minutes: number): number {
+  return Math.ceil(minutes / 15) * 15;
+}
+
 /**
  * Get day of week as 0=Monday..6=Sunday.
  * JS Date uses 0=Sunday, 1=Monday, ..., 6=Saturday.

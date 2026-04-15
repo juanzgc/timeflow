@@ -3,7 +3,8 @@
  *
  * Converts raw clock_in/clock_out to payable effective_in/effective_out
  * by applying business rules:
- *   - Clock-in: pay from the LATER of scheduled start or actual arrival
+ *   - Clock-in: pay from the LATER of scheduled start or actual arrival,
+ *     rounded UP to the next 15-min boundary if late
  *   - Clock-out before schedule: exact (early leave)
  *   - Clock-out after schedule: only full 15-min blocks count
  *
@@ -15,6 +16,7 @@ import {
   combineDateAndTimeWithCrossing,
   minutesBetween,
   floorTo15Min,
+  ceilTo15Min,
 } from "./time-utils";
 
 export interface NormalizedPunches {
@@ -51,11 +53,18 @@ export function normalizePunches(
     : combineDateAndTime(workDate, scheduledEnd);
 
   // --- Effective In ---
-  // Pay from the LATER of scheduled start or actual arrival
-  const effectiveIn =
-    clockIn.getTime() > schedStart.getTime() ? new Date(clockIn) : new Date(schedStart);
-
+  // Pay from the LATER of scheduled start or actual arrival.
+  // Late arrivals are rounded UP to the next 15-min boundary
+  // (only complete 15-min blocks are payable).
   const lateMinutes = Math.max(0, minutesBetween(schedStart, clockIn));
+
+  let effectiveIn: Date;
+  if (lateMinutes > 0) {
+    const roundedLate = ceilTo15Min(lateMinutes);
+    effectiveIn = new Date(schedStart.getTime() + roundedLate * 60000);
+  } else {
+    effectiveIn = new Date(schedStart);
+  }
 
   // --- Effective Out ---
   if (clockOut === null) {

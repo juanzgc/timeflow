@@ -108,10 +108,20 @@ export function classifyDay(
   let excessHenMins = 0;
 
   if (excessMins > 0) {
-    // Excess comes from the tail end of the shift
-    const tailClassified = classifyTail(workedSegments, excessMins, workDate);
-    excessHedMins = tailClassified.diurno;
-    excessHenMins = tailClassified.nocturno;
+    // Excess comes from the tail end of the shift.
+    // Classify the tail into the full 4 buckets so we can subtract
+    // from the recargo buckets — a minute is either recargo OR overtime,
+    // never both.
+    const tail = classifyTail(workedSegments, excessMins, workDate);
+
+    excessHedMins = tail.ordinaryDay + tail.festivoDay;
+    excessHenMins = tail.nocturno + tail.festivoNight;
+
+    // Remove overtime minutes from recargo buckets (no double-dipping)
+    minsOrdinaryDay -= tail.ordinaryDay;
+    minsNocturno -= tail.nocturno;
+    minsFestivoDay -= tail.festivoDay;
+    minsFestivoNight -= tail.festivoNight;
   }
 
   return {
@@ -151,24 +161,30 @@ function buildWorkedSegments(
     return [{ start: effectiveIn, end: effectiveOut }];
   }
 
-  // Split shift — clip to each segment
+  // Split shift — clip to each segment, but allow the last segment
+  // to extend to effectiveOut so overtime beyond schedule is counted.
+  // The gap between segments is excluded by capping non-last segments
+  // at their scheduled end.
   const result: WorkedSegment[] = [];
 
-  for (const seg of shiftSegments) {
-    const segStart = seg.crossesMidnight
-      ? combineDateAndTime(workDate, seg.start)
-      : combineDateAndTime(workDate, seg.start);
+  for (let i = 0; i < shiftSegments.length; i++) {
+    const seg = shiftSegments[i];
+    const isLast = i === shiftSegments.length - 1;
+
+    const segStart = combineDateAndTime(workDate, seg.start);
     const segEnd = seg.crossesMidnight
       ? combineDateAndTimeWithCrossing(workDate, seg.end, true)
       : combineDateAndTime(workDate, seg.end);
 
-    // Clip effective times to this segment
     const clippedStart = new Date(
       Math.max(effectiveIn.getTime(), segStart.getTime()),
     );
-    const clippedEnd = new Date(
-      Math.min(effectiveOut.getTime(), segEnd.getTime()),
-    );
+
+    // Non-last segments: cap at segEnd to exclude the gap.
+    // Last segment: extend to effectiveOut so overtime is preserved.
+    const clippedEnd = isLast
+      ? effectiveOut
+      : new Date(Math.min(effectiveOut.getTime(), segEnd.getTime()));
 
     if (clippedEnd.getTime() > clippedStart.getTime()) {
       result.push({ start: clippedStart, end: clippedEnd });
@@ -309,17 +325,22 @@ function classifySubSegment(
 
 /**
  * Classify the last N minutes of the worked segments (the "tail").
- * Used to determine whether daily excess is diurno (HED) or nocturno (HEN).
- * Returns only diurno/nocturno split — day type doesn't matter for excess tagging.
+ * Used to determine the surcharge buckets for daily excess (overtime).
+ * Returns the full 4-bucket breakdown so overtime minutes can be
+ * subtracted from the corresponding recargo buckets.
  */
 function classifyTail(
   workedSegments: WorkedSegment[],
   tailMins: number,
   workDate: Date,
-): { diurno: number; nocturno: number } {
+): SegmentClassification {
   let remaining = tailMins;
-  let diurno = 0;
-  let nocturno = 0;
+  const result: SegmentClassification = {
+    ordinaryDay: 0,
+    nocturno: 0,
+    festivoDay: 0,
+    festivoNight: 0,
+  };
 
   // Walk backwards through segments
   for (let i = workedSegments.length - 1; i >= 0 && remaining > 0; i--) {
@@ -329,58 +350,15 @@ function classifyTail(
 
     // Take from the end of this segment
     const tailStart = new Date(seg.end.getTime() - take * 60000);
-    const tailEnd = seg.end;
+    const classified = classifySegment(tailStart, seg.end, workDate);
 
-    // Classify these tail minutes by time-of-day only
-    const midnight = getMidnight(workDate);
-
-    // Handle potential midnight crossing in the tail
-    if (
-      tailStart.getTime() < midnight.getTime() &&
-      tailEnd.getTime() > midnight.getTime()
-    ) {
-      // Split at midnight
-      const preMins = minutesBetween(tailStart, midnight);
-      const postMins = minutesBetween(midnight, tailEnd);
-      diurno += classifyTimeOfDay(tailStart, preMins);
-      nocturno += preMins - classifyTimeOfDay(tailStart, preMins);
-      diurno += classifyTimeOfDay(midnight, postMins);
-      nocturno += postMins - classifyTimeOfDay(midnight, postMins);
-    } else {
-      const d = classifyTimeOfDay(tailStart, take);
-      diurno += d;
-      nocturno += take - d;
-    }
+    result.ordinaryDay += classified.ordinaryDay;
+    result.nocturno += classified.nocturno;
+    result.festivoDay += classified.festivoDay;
+    result.festivoNight += classified.festivoNight;
 
     remaining -= take;
   }
 
-  return { diurno, nocturno };
-}
-
-/**
- * Count how many of the next `mins` minutes starting from `start` are diurno.
- * The rest are nocturno.
- */
-function classifyTimeOfDay(start: Date, mins: number): number {
-  const startMins = colHours(start) * 60 + colMinutes(start);
-  const endMins = startMins + mins;
-
-  let diurno = 0;
-  const cuts = [startMins];
-  if (DIURNO_START_MINS > startMins && DIURNO_START_MINS < endMins)
-    cuts.push(DIURNO_START_MINS);
-  if (DIURNO_END_MINS > startMins && DIURNO_END_MINS < endMins)
-    cuts.push(DIURNO_END_MINS);
-  cuts.push(endMins);
-  cuts.sort((a, b) => a - b);
-
-  for (let i = 0; i < cuts.length - 1; i++) {
-    const cs = cuts[i];
-    const ce = cuts[i + 1];
-    const isDiurno = cs >= DIURNO_START_MINS && cs < DIURNO_END_MINS;
-    if (isDiurno) diurno += ce - cs;
-  }
-
-  return diurno;
+  return result;
 }

@@ -123,6 +123,11 @@ export function ShiftModal({
   const totalMins = seg1Mins + seg2Mins;
   const excess = totalMins - dailyLimit;
 
+  const MAX_SEGMENT_MINS = 720; // 12 hours
+  const seg1TooLong = shiftType === "regular" && seg1Mins > MAX_SEGMENT_MINS;
+  const seg2TooLong = shiftType === "regular" && isSplit && seg2Mins > MAX_SEGMENT_MINS;
+  const shiftTooLong = seg1TooLong || seg2TooLong;
+
   const gap = useMemo(() => {
     if (!isSplit) return 0;
     return getGapBetweenShifts(end1, start2);
@@ -334,9 +339,14 @@ export function ShiftModal({
                     {minsToHoursDisplay(dailyLimit)}
                   </span>
                 </p>
-                {excess > 0 && (
+                {excess > 0 && !shiftTooLong && (
                   <p className="font-semibold text-warning-text">
                     +{minsToHoursDisplay(excess)} excess (overtime)
+                  </p>
+                )}
+                {shiftTooLong && (
+                  <p className="font-semibold text-danger">
+                    {seg1TooLong ? "Segment 1" : "Segment 2"} exceeds 12 hours ({minsToHoursDisplay(seg1TooLong ? seg1Mins : seg2Mins)}) — check that the times are correct
                   </p>
                 )}
               </div>
@@ -418,7 +428,7 @@ export function ShiftModal({
           <Button variant="outline" size="sm" onClick={onClose}>
             Cancel
           </Button>
-          <Button size="sm" onClick={handleSave} disabled={saving}>
+          <Button size="sm" onClick={handleSave} disabled={saving || shiftTooLong}>
             {saving ? "Saving..." : "Save"}
           </Button>
         </DialogFooter>
