@@ -189,7 +189,6 @@ async function calculateForEmployee(
 
   while (formatDateISO(cursor) <= formatDateISO(end)) {
     const dateStr = formatDateISO(cursor);
-    processedDates.add(dateStr);
 
     const dow = getDayOfWeek(cursor);
 
@@ -206,10 +205,13 @@ async function calculateForEmployee(
     }
 
     if (dayShiftsAll.length === 0) {
-      // No shifts scheduled — skip (unscheduled day)
+      // No shifts scheduled — leave for Phase D if punches exist
       cursor = colAddDays(cursor, 1);
       continue;
     }
+
+    // This date has schedule entries — mark as processed so Phase D skips it
+    processedDates.add(dateStr);
 
     // Check shift types for this day
     const dayOffShift = dayShiftsAll.find((s) => s.shiftType === "day_off");

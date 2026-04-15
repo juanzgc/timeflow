@@ -3,6 +3,8 @@ import { and, eq, gte, lte, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { employees, groups, dailyAttendance } from "@/drizzle/schema";
 import { auth } from "@/auth";
+import { syncIfStale } from "@/lib/biotime/sync-if-stale";
+import { calculateAttendance } from "@/lib/engine/attendance-calculator";
 
 export async function GET(request: Request) {
   const session = await auth();
@@ -21,6 +23,10 @@ export async function GET(request: Request) {
       { status: 400 },
     );
   }
+
+  // Sync BioTime if stale, then recalculate all employees
+  await syncIfStale(5);
+  await calculateAttendance({ startDate, endDate });
 
   // Build conditions
   const conditions = [

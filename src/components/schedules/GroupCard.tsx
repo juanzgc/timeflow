@@ -16,6 +16,8 @@ const GROUP_COLORS: Record<string, string> = {
 type ScheduleInfo = {
   id: number;
   shiftCount: number;
+  coveredSlots: number;
+  employeeCount: number;
 } | null;
 
 export function GroupCard({
@@ -30,9 +32,10 @@ export function GroupCard({
   const color = GROUP_COLORS[group.name] ?? "var(--primary)";
   const weekStr = formatDateISO(weekStart);
 
+  const requiredSlots = (scheduleInfo?.employeeCount ?? group.employeeCount) * 7;
   const status = !scheduleInfo
     ? "Not created"
-    : scheduleInfo.shiftCount > 0
+    : scheduleInfo.coveredSlots >= requiredSlots && requiredSlots > 0
       ? "Complete"
       : "Draft";
 

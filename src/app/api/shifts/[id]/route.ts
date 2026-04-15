@@ -1,10 +1,11 @@
 import { NextResponse } from "next/server";
-import { and, eq } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { shifts, compTransactions } from "@/drizzle/schema";
+import { shifts, weeklySchedules, compTransactions } from "@/drizzle/schema";
 import { auth } from "@/auth";
 import { doShiftsOverlap, getGapBetweenShifts } from "@/lib/schedule-utils";
 import { todayColombiaISO } from "@/lib/timezone";
+import { calculateAttendance } from "@/lib/engine/attendance-calculator";
 
 // PUT /api/shifts/[id] — update a shift
 export async function PUT(
@@ -114,6 +115,7 @@ export async function PUT(
       .where(eq(shifts.id, Number(id)))
       .returning();
 
+    await recalculateForShift(existing.scheduleId, existing.employeeId, existing.dayOfWeek);
     return NextResponse.json(row);
   }
 
@@ -134,6 +136,7 @@ export async function PUT(
     .where(eq(shifts.id, Number(id)))
     .returning();
 
+  await recalculateForShift(existing.scheduleId, existing.employeeId, existing.dayOfWeek);
   return NextResponse.json(row);
 }
 
@@ -166,7 +169,7 @@ export async function DELETE(
       .select({ balanceAfter: compTransactions.balanceAfter })
       .from(compTransactions)
       .where(eq(compTransactions.employeeId, existing.employeeId))
-      .orderBy(compTransactions.createdAt)
+      .orderBy(desc(compTransactions.createdAt))
       .limit(1);
 
     const currentBalance = lastTx?.balanceAfter ?? 0;
@@ -180,12 +183,23 @@ export async function DELETE(
       balanceAfter: newBalance,
       sourceShiftId: shiftId,
       createdBy: session.user.name ?? "admin",
-      note: "Reversed comp day off deletion",
+      note: `Reversed comp day off deletion (shift #${shiftId})`,
     });
   }
 
+  // Detach comp_transactions that reference this shift (or its split pair)
+  // so the FK doesn't block deletion
+  await db
+    .update(compTransactions)
+    .set({ sourceShiftId: null })
+    .where(eq(compTransactions.sourceShiftId, shiftId));
+
   // If this shift has a split pair, also delete the pair
   if (existing.splitPairId) {
+    await db
+      .update(compTransactions)
+      .set({ sourceShiftId: null })
+      .where(eq(compTransactions.sourceShiftId, existing.splitPairId));
     await db.delete(shifts).where(eq(shifts.id, existing.splitPairId));
   }
   // Also delete any shifts that reference this one as their splitPairId
@@ -193,10 +207,35 @@ export async function DELETE(
 
   await db.delete(shifts).where(eq(shifts.id, shiftId));
 
+  // Recalculate attendance for this employee/date now that the shift is gone
+  await recalculateForShift(existing.scheduleId, existing.employeeId, existing.dayOfWeek);
+
   return NextResponse.json({ success: true });
 }
 
 function timeToMins(time: string): number {
   const [h, m] = time.split(":").map(Number);
   return h * 60 + m;
+}
+
+/** Resolve the actual date from a shift's schedule weekStart + dayOfWeek, then recalculate. */
+async function recalculateForShift(scheduleId: number, employeeId: number, dayOfWeek: number): Promise<void> {
+  const [schedule] = await db
+    .select({ weekStart: weeklySchedules.weekStart })
+    .from(weeklySchedules)
+    .where(eq(weeklySchedules.id, scheduleId))
+    .limit(1);
+
+  if (!schedule) return;
+
+  const monday = new Date(schedule.weekStart + "T12:00:00");
+  const target = new Date(monday);
+  target.setDate(target.getDate() + dayOfWeek);
+  const dateStr = target.toISOString().slice(0, 10);
+
+  try {
+    await calculateAttendance({ employeeId, startDate: dateStr, endDate: dateStr });
+  } catch {
+    // Best-effort — don't fail the shift operation
+  }
 }

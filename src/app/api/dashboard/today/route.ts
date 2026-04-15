@@ -4,6 +4,8 @@ import { db } from "@/lib/db";
 import { employees, groups, dailyAttendance } from "@/drizzle/schema";
 import { auth } from "@/auth";
 import { todayColombiaISO, colAddDays, formatColombiaDateISO } from "@/lib/timezone";
+import { syncIfStale } from "@/lib/biotime/sync-if-stale";
+import { calculateAttendance } from "@/lib/engine/attendance-calculator";
 
 export async function GET() {
   const session = await auth();
@@ -13,6 +15,10 @@ export async function GET() {
 
   const today = new Date();
   const todayStr = todayColombiaISO();
+
+  // Sync BioTime if stale, then recalculate all employees for today
+  await syncIfStale(5);
+  await calculateAttendance({ startDate: todayStr, endDate: todayStr });
 
   // Get all active employees with their group and today's attendance
   const rows = await db

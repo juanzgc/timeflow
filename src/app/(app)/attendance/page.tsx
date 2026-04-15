@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { Fragment, useEffect, useState, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Table,
@@ -267,9 +267,8 @@ export default function AttendancePage() {
                       ? Math.round(emp.totalWorkedMins / emp.daysPresent)
                       : 0;
                   return (
-                    <>
+                    <Fragment key={emp.employeeId}>
                       <TableRow
-                        key={emp.employeeId}
                         className="cursor-pointer"
                         onClick={() => toggleExpand(emp.employeeId)}
                       >
@@ -367,13 +366,13 @@ export default function AttendancePage() {
                         </TableCell>
                       </TableRow>
                       {isExpanded && (
-                        <TableRow key={`${emp.employeeId}-detail`}>
+                        <TableRow>
                           <TableCell colSpan={9} className="bg-muted/30 p-0">
                             <DailyBreakdown records={dailyRecords} />
                           </TableCell>
                         </TableRow>
                       )}
-                    </>
+                    </Fragment>
                   );
                 })}
               </TableBody>

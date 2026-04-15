@@ -18,6 +18,8 @@ type ScheduleRow = {
   groupId: number;
   groupName: string;
   shiftCount: number;
+  coveredSlots: number;
+  employeeCount: number;
 };
 
 export default function SchedulesPage() {
@@ -84,7 +86,7 @@ export default function SchedulesPage() {
                 weekStart={weekStart}
                 scheduleInfo={
                   schInfo
-                    ? { id: schInfo.id, shiftCount: schInfo.shiftCount }
+                    ? { id: schInfo.id, shiftCount: schInfo.shiftCount, coveredSlots: schInfo.coveredSlots, employeeCount: schInfo.employeeCount }
                     : null
                 }
               />

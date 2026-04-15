@@ -10,6 +10,8 @@ import {
 import { auth } from "@/auth";
 import { reconcilePeriod, type DailyRecord } from "@/lib/engine/period-reconciler";
 import { colombiaStartOfDay } from "@/lib/timezone";
+import { syncIfStale } from "@/lib/biotime/sync-if-stale";
+import { calculateAttendance } from "@/lib/engine/attendance-calculator";
 
 /**
  * GET /api/payroll
@@ -85,6 +87,10 @@ export async function POST(request: Request) {
       );
     }
   }
+
+  // Sync BioTime if stale, then recalculate all employees for the period
+  await syncIfStale(5);
+  await calculateAttendance({ startDate: periodStart, endDate: periodEnd });
 
   // Get all active employees
   const allEmployees = await db

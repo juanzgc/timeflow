@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { and, eq, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { weeklySchedules, shifts, groups } from "@/drizzle/schema";
+import { weeklySchedules, shifts, groups, employees } from "@/drizzle/schema";
 import { auth } from "@/auth";
 
 // GET /api/schedules?weekStart=2026-04-13 — list schedules for a week
@@ -26,6 +26,7 @@ export async function GET(request: NextRequest) {
       groupId: weeklySchedules.groupId,
       groupName: groups.name,
       shiftCount: sql<number>`count(${shifts.id})::int`,
+      coveredSlots: sql<number>`count(distinct (${shifts.employeeId}, ${shifts.dayOfWeek}))::int`,
     })
     .from(weeklySchedules)
     .leftJoin(groups, eq(weeklySchedules.groupId, groups.id))
@@ -33,7 +34,28 @@ export async function GET(request: NextRequest) {
     .where(eq(weeklySchedules.weekStart, weekStart))
     .groupBy(weeklySchedules.id, groups.name);
 
-  return NextResponse.json({ schedules: rows });
+  // Count active employees per group to determine completeness
+  const groupIds = rows.map((r) => r.groupId);
+  let employeeCounts: Record<number, number> = {};
+  if (groupIds.length > 0) {
+    const empRows = await db
+      .select({
+        groupId: employees.groupId,
+        count: sql<number>`count(*)::int`,
+      })
+      .from(employees)
+      .where(and(eq(employees.isActive, true), sql`${employees.groupId} in ${groupIds}`))
+      .groupBy(employees.groupId);
+
+    employeeCounts = Object.fromEntries(empRows.map((r) => [r.groupId!, r.count]));
+  }
+
+  const schedules = rows.map((r) => ({
+    ...r,
+    employeeCount: employeeCounts[r.groupId] ?? 0,
+  }));
+
+  return NextResponse.json({ schedules });
 }
 
 // POST /api/schedules — create a weekly schedule
