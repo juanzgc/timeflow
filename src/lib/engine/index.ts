@@ -38,3 +38,9 @@ export {
   getBusinessDay,
   formatDateISO,
 } from "./time-utils";
+
+export {
+  calculateAttendance,
+  type AttendanceOptions,
+  type AttendanceResult,
+} from "./attendance-calculator";

@@ -69,32 +69,27 @@ export async function syncTransactions(
   const affectedDaysSet = new Set<string>();
 
   for (const tx of remote) {
-    // Check duplicate by biotime_id
-    const existing = await db
-      .select({ id: punchLogs.id })
-      .from(punchLogs)
-      .where(eq(punchLogs.biotimeId, tx.id))
-      .limit(1);
+    const result = await db
+      .insert(punchLogs)
+      .values({
+        empCode: tx.emp_code,
+        punchTime: parseColombia(tx.punch_time),
+        punchState: tx.punch_state,
+        verifyType: tx.verify_type,
+        terminalSn: tx.terminal_sn,
+        biotimeId: tx.id,
+        source: "biotime",
+      })
+      .onConflictDoNothing({ target: punchLogs.biotimeId });
 
-    if (existing.length) {
+    if (result.rowCount && result.rowCount > 0) {
+      inserted++;
+      // Track affected day only for newly inserted punches
+      const businessDay = extractBusinessDay(tx.punch_time);
+      affectedDaysSet.add(`${tx.emp_code}:${businessDay}`);
+    } else {
       skipped++;
-      continue;
     }
-
-    await db.insert(punchLogs).values({
-      empCode: tx.emp_code,
-      punchTime: parseColombia(tx.punch_time),
-      punchState: tx.punch_state,
-      verifyType: tx.verify_type,
-      terminalSn: tx.terminal_sn,
-      biotimeId: tx.id,
-      source: "biotime",
-    });
-    inserted++;
-
-    // Track affected day: empCode:YYYY-MM-DD
-    const businessDay = extractBusinessDay(tx.punch_time);
-    affectedDaysSet.add(`${tx.emp_code}:${businessDay}`);
   }
 
   return {

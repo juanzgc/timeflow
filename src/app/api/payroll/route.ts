@@ -119,7 +119,7 @@ export async function POST(request: Request) {
           lte(compTransactions.transactionDate, periodStart),
         ),
       )
-      .orderBy(compTransactions.createdAt)
+      .orderBy(desc(compTransactions.createdAt))
       .limit(1);
 
     const compBalanceStart = lastTx?.balanceAfter ?? 0;

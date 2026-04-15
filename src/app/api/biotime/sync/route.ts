@@ -6,6 +6,7 @@ import { getBioTimeClient } from "@/lib/biotime/client";
 import { syncEmployees } from "@/lib/biotime/employees";
 import { syncTransactions } from "@/lib/biotime/transactions";
 import { markConnected, markDisconnected } from "@/lib/biotime/auth";
+import { calculateAttendance } from "@/lib/engine/attendance-calculator";
 
 // ─── Concurrency lock helpers ───────────────────────────────────────────────
 
@@ -39,7 +40,6 @@ async function releaseLock(): Promise<void> {
 
 async function recalculateAffectedDays(
   affectedDays: string[],
-  requestUrl: string,
 ): Promise<void> {
   // Group affected days by empCode
   const byEmployee = new Map<string, Set<string>>();
@@ -63,17 +63,12 @@ async function recalculateAffectedDays(
     const startDate = sortedDates[0];
     const endDate = sortedDates[sortedDates.length - 1];
 
-    // Call the attendance calculate endpoint internally
+    // Call engine directly — no HTTP, no auth needed
     try {
-      const url = new URL("/api/attendance/calculate", requestUrl);
-      await fetch(url, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          employeeId: emp.id,
-          startDate,
-          endDate,
-        }),
+      await calculateAttendance({
+        employeeId: emp.id,
+        startDate,
+        endDate,
       });
     } catch {
       // Best-effort recalculation — don't fail the sync
@@ -116,9 +111,9 @@ export async function POST(request: Request) {
 
     await markConnected();
 
-    // Recalculate attendance for affected days (best-effort)
+    // Recalculate attendance for affected days (best-effort, direct engine call)
     if (transactionResult.affectedDays.length > 0) {
-      await recalculateAffectedDays(transactionResult.affectedDays, request.url);
+      await recalculateAffectedDays(transactionResult.affectedDays);
     }
 
     return NextResponse.json({

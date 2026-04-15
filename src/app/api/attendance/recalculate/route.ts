@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
+import { calculateAttendance } from "@/lib/engine/attendance-calculator";
 
 /**
  * POST /api/attendance/recalculate
  * Recalculates attendance for a single employee + date.
- * Delegates to the main calculate endpoint with a 1-day range.
  *
  * Body: { employeeId: number, workDate: string }
  */
@@ -24,21 +24,11 @@ export async function POST(request: Request) {
     );
   }
 
-  // Forward to the calculate endpoint with a 1-day range
-  const url = new URL("/api/attendance/calculate", request.url);
-  const res = await fetch(url, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      cookie: request.headers.get("cookie") ?? "",
-    },
-    body: JSON.stringify({
-      employeeId,
-      startDate: workDate,
-      endDate: workDate,
-    }),
+  const results = await calculateAttendance({
+    employeeId,
+    startDate: workDate,
+    endDate: workDate,
   });
 
-  const data = await res.json();
-  return NextResponse.json(data, { status: res.status });
+  return NextResponse.json({ processed: results.length, results });
 }
