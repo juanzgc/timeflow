@@ -269,6 +269,7 @@ export function reconcilePeriod(
 export function applyCompDecision(
   recon: PeriodReconciliation,
   bankMins: number,
+  periodStart: Date,
 ): PeriodReconciliation {
   const otPaidMins = recon.otAvailableAfterOffset - bankMins;
   const earnedTotal = recon.otEarnedHedMins + recon.otEarnedHenMins;
@@ -281,7 +282,7 @@ export function applyCompDecision(
     henMins = otPaidMins - hedMins;
   }
 
-  const config = getSurchargeConfig(new Date());
+  const config = getSurchargeConfig(periodStart);
   const hedCost =
     (hedMins / 60) * recon.horaOrdinariaValue * config.extraDiurnaRate;
   const henCost =

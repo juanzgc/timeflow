@@ -13,7 +13,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             <header className="flex h-12 shrink-0 items-center gap-2 px-4">
               <SidebarTrigger className="-ml-1" />
             </header>
-            <main className="flex-1 overflow-y-auto px-8 pb-10">{children}</main>
+            <main className="flex-1 overflow-y-auto px-4 pb-10 sm:px-6 lg:px-8">{children}</main>
           </SidebarInset>
         </SidebarProvider>
       </TooltipProvider>

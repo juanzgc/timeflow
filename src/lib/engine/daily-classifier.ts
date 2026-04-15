@@ -20,6 +20,7 @@ import {
   DIURNO_END_MINS,
 } from "./time-utils";
 import { isHolidayDate } from "./colombian-labor";
+import { colHours, colMinutes, colFullYear, colMonth, colDate, colombiaDate, colAddDays } from "@/lib/timezone";
 
 export interface DailyClassification {
   totalWorkedMins: number;
@@ -209,8 +210,7 @@ function classifySegment(
     // Split at midnight — pre-midnight gets workDate's day type,
     // post-midnight gets (workDate + 1)'s day type
     const pre = classifySubSegment(start, midnight, workDate);
-    const nextDay = new Date(workDate);
-    nextDay.setDate(nextDay.getDate() + 1);
+    const nextDay = colAddDays(workDate, 1);
     const post = classifySubSegment(midnight, end, nextDay);
 
     result.ordinaryDay = pre.ordinaryDay + post.ordinaryDay;
@@ -221,7 +221,7 @@ function classifySegment(
     // Determine which calendar day this segment falls on
     const segDate =
       start.getTime() >= midnight.getTime()
-        ? new Date(workDate.getFullYear(), workDate.getMonth(), workDate.getDate() + 1)
+        ? colombiaDate(colFullYear(workDate), colMonth(workDate), colDate(workDate) + 1)
         : workDate;
     const sub = classifySubSegment(start, end, segDate);
     result.ordinaryDay = sub.ordinaryDay;
@@ -254,8 +254,8 @@ function classifySubSegment(
   const totalMins = minutesBetween(start, end);
   if (totalMins <= 0) return result;
 
-  // Get minute-of-day for start and end
-  const startMins = start.getHours() * 60 + start.getMinutes();
+  // Get minute-of-day for start and end (Colombia local time)
+  const startMins = colHours(start) * 60 + colMinutes(start);
   const endMins = startMins + totalMins;
 
   // Split at nocturno boundaries within this sub-segment
@@ -363,7 +363,7 @@ function classifyTail(
  * The rest are nocturno.
  */
 function classifyTimeOfDay(start: Date, mins: number): number {
-  const startMins = start.getHours() * 60 + start.getMinutes();
+  const startMins = colHours(start) * 60 + colMinutes(start);
   const endMins = startMins + mins;
 
   let diurno = 0;

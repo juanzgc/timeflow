@@ -18,6 +18,7 @@ import {
   DAY_NAMES_SHORT,
 } from "@/lib/schedule-utils";
 import { Trash2Icon } from "lucide-react";
+import { colMonth, colDate } from "@/lib/timezone";
 
 type Shift = {
   id: number;
@@ -132,7 +133,7 @@ export function ShiftModal({
   const monthNames = [
     "Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec",
   ];
-  const dateLabel = `${DAY_NAMES_SHORT[dayOfWeek]}, ${monthNames[dateObj.getMonth()]} ${dateObj.getDate()}`;
+  const dateLabel = `${DAY_NAMES_SHORT[dayOfWeek]}, ${monthNames[colMonth(dateObj)]} ${colDate(dateObj)}`;
 
   const handleSave = async () => {
     setError(null);

@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { shifts, compTransactions } from "@/drizzle/schema";
 import { auth } from "@/auth";
 import { doShiftsOverlap, getGapBetweenShifts } from "@/lib/schedule-utils";
+import { todayColombiaISO } from "@/lib/timezone";
 
 // POST /api/shifts — create a new shift
 export async function POST(request: Request) {
@@ -181,7 +182,7 @@ export async function POST(request: Request) {
 
     await db.insert(compTransactions).values({
       employeeId,
-      transactionDate: new Date().toISOString().split("T")[0],
+      transactionDate: todayColombiaISO(),
       type: "comp_day_taken",
       minutes: -compDebitMins,
       balanceAfter: newBalance,

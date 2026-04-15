@@ -1,11 +1,10 @@
 import { describe, it, expect } from "vitest";
 import { resolvePunches, type PunchLog, type ShiftSchedule } from "../punch-resolver";
+import { colombiaStartOfDay, colSetHours, colHours, colDate } from "@/lib/timezone";
 
 function punch(dateStr: string, time: string): PunchLog {
   const [h, m] = time.split(":").map(Number);
-  const date = new Date(dateStr + "T00:00:00");
-  date.setHours(h, m, 0, 0);
-  return { empCode: "1001", punchTime: date, punchState: null };
+  return { empCode: "1001", punchTime: colSetHours(colombiaStartOfDay(dateStr), h, m, 0), punchState: null };
 }
 
 describe("resolvePunches", () => {
@@ -18,8 +17,8 @@ describe("resolvePunches", () => {
     ];
     const result = resolvePunches("1001", 1, punches, scheduleMap);
     expect(result).toHaveLength(1);
-    expect(result[0].clockIn!.getHours()).toBe(8);
-    expect(result[0].clockOut!.getHours()).toBe(17);
+    expect(colHours(result[0].clockIn!)).toBe(8);
+    expect(colHours(result[0].clockOut!)).toBe(17);
     expect(result[0].isMissingPunch).toBe(false);
   });
 
@@ -40,9 +39,9 @@ describe("resolvePunches", () => {
     // Both punches belong to Apr 13 (22:00 is after 6AM = Apr 13,
     // 05:55 is before 6AM = previous day = Apr 13)
     expect(result).toHaveLength(1);
-    expect(result[0].workDate.getDate()).toBe(13);
-    expect(result[0].clockIn!.getHours()).toBe(22);
-    expect(result[0].clockOut!.getHours()).toBe(5);
+    expect(colDate(result[0].workDate)).toBe(13);
+    expect(colHours(result[0].clockIn!)).toBe(22);
+    expect(colHours(result[0].clockOut!)).toBe(5);
   });
 
   it("uses schedule to resolve 6:00-6:30 AM punch for midnight-crossing shift", () => {
@@ -62,7 +61,7 @@ describe("resolvePunches", () => {
     const result = resolvePunches("1001", 1, punches, schedMap);
     // 06:05 is within the grace window and Mon has crossesMidnight → attribute to Mon
     expect(result).toHaveLength(1);
-    expect(result[0].workDate.getDate()).toBe(13); // Monday
+    expect(colDate(result[0].workDate)).toBe(13); // Monday
   });
 
   it("ignores middle punches (uses first and last)", () => {
@@ -73,8 +72,8 @@ describe("resolvePunches", () => {
     ];
     const result = resolvePunches("1001", 1, punches, scheduleMap);
     expect(result).toHaveLength(1);
-    expect(result[0].clockIn!.getHours()).toBe(8);
-    expect(result[0].clockOut!.getHours()).toBe(17);
+    expect(colHours(result[0].clockIn!)).toBe(8);
+    expect(colHours(result[0].clockOut!)).toBe(17);
     expect(result[0].allPunches).toHaveLength(3);
   });
 });

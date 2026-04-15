@@ -1,11 +1,10 @@
 import { describe, it, expect } from "vitest";
 import { classifyDay } from "../daily-classifier";
+import { colombiaStartOfDay, colSetHours } from "@/lib/timezone";
 
 function d(dateStr: string, time: string): Date {
   const [h, m] = time.split(":").map(Number);
-  const date = new Date(dateStr + "T00:00:00");
-  date.setHours(h, m, 0, 0);
-  return date;
+  return colSetHours(colombiaStartOfDay(dateStr), h, m, 0);
 }
 
 describe("classifyDay", () => {
@@ -14,7 +13,7 @@ describe("classifyDay", () => {
     const result = classifyDay(
       d("2026-04-13", "08:00"), // Mon
       d("2026-04-13", "15:00"),
-      new Date("2026-04-13T00:00:00"),
+      colombiaStartOfDay("2026-04-13"),
       [{ start: "08:00", end: "15:00", crossesMidnight: false }],
       0,
       420,
@@ -34,7 +33,7 @@ describe("classifyDay", () => {
     const result = classifyDay(
       d("2026-04-18", "17:00"), // Sat
       d("2026-04-19", "01:00"),
-      new Date("2026-04-18T00:00:00"),
+      colombiaStartOfDay("2026-04-18"),
       [{ start: "17:00", end: "01:00", crossesMidnight: true }],
       0,
       480,
@@ -53,7 +52,7 @@ describe("classifyDay", () => {
     const result = classifyDay(
       d("2026-04-13", "10:00"),
       d("2026-04-13", "18:00"),
-      new Date("2026-04-13T00:00:00"),
+      colombiaStartOfDay("2026-04-13"),
       [{ start: "10:00", end: "17:00", crossesMidnight: false }],
       0,
       420,
@@ -69,7 +68,7 @@ describe("classifyDay", () => {
     const result = classifyDay(
       d("2026-04-13", "12:00"),
       d("2026-04-13", "20:00"),
-      new Date("2026-04-13T00:00:00"),
+      colombiaStartOfDay("2026-04-13"),
       [{ start: "12:00", end: "19:00", crossesMidnight: false }],
       0,
       420,
@@ -85,7 +84,7 @@ describe("classifyDay", () => {
     const result = classifyDay(
       d("2026-05-01", "08:00"),
       d("2026-05-01", "15:00"),
-      new Date("2026-05-01T00:00:00"),
+      colombiaStartOfDay("2026-05-01"),
       [{ start: "08:00", end: "15:00", crossesMidnight: false }],
       0,
       420,

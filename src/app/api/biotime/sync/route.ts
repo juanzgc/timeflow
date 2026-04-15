@@ -1,25 +1,111 @@
 import { NextResponse } from "next/server";
 import { eq } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { employees, punchLogs, settings } from "@/drizzle/schema";
-import { fetchEmployees, fetchTransactions } from "@/lib/biotime-client";
+import { employees, settings } from "@/drizzle/schema";
+import { getBioTimeClient } from "@/lib/biotime/client";
+import { syncEmployees } from "@/lib/biotime/employees";
+import { syncTransactions } from "@/lib/biotime/transactions";
+import { markConnected, markDisconnected } from "@/lib/biotime/auth";
 
-// POST /api/biotime/sync — trigger full sync (employees + transactions)
+// ─── Concurrency lock helpers ───────────────────────────────────────────────
+
+async function acquireLock(): Promise<boolean> {
+  const row = await db
+    .select()
+    .from(settings)
+    .where(eq(settings.key, "sync_in_progress"))
+    .limit(1);
+
+  if (row[0]?.value === "true") {
+    return false; // already running
+  }
+
+  await db
+    .insert(settings)
+    .values({ key: "sync_in_progress", value: "true" })
+    .onConflictDoUpdate({ target: settings.key, set: { value: "true" } });
+
+  return true;
+}
+
+async function releaseLock(): Promise<void> {
+  await db
+    .insert(settings)
+    .values({ key: "sync_in_progress", value: "false" })
+    .onConflictDoUpdate({ target: settings.key, set: { value: "false" } });
+}
+
+// ─── Recalculate affected days ──────────────────────────────────────────────
+
+async function recalculateAffectedDays(
+  affectedDays: string[],
+  requestUrl: string,
+): Promise<void> {
+  // Group affected days by empCode
+  const byEmployee = new Map<string, Set<string>>();
+  for (const entry of affectedDays) {
+    const [empCode, date] = entry.split(":");
+    if (!byEmployee.has(empCode)) byEmployee.set(empCode, new Set());
+    byEmployee.get(empCode)!.add(date);
+  }
+
+  for (const [empCode, dates] of byEmployee) {
+    // Look up employee ID
+    const [emp] = await db
+      .select({ id: employees.id })
+      .from(employees)
+      .where(eq(employees.empCode, empCode))
+      .limit(1);
+
+    if (!emp) continue;
+
+    const sortedDates = Array.from(dates).sort();
+    const startDate = sortedDates[0];
+    const endDate = sortedDates[sortedDates.length - 1];
+
+    // Call the attendance calculate endpoint internally
+    try {
+      const url = new URL("/api/attendance/calculate", requestUrl);
+      await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          employeeId: emp.id,
+          startDate,
+          endDate,
+        }),
+      });
+    } catch {
+      // Best-effort recalculation — don't fail the sync
+    }
+  }
+}
+
+// ─── POST /api/biotime/sync ─────────────────────────────────────────────────
+
 export async function POST(request: Request) {
-  // Verify API key for cron access (or session for manual trigger)
+  // Auth: accept cron secret or session cookie
   const authHeader = request.headers.get("authorization");
   const cronSecret = process.env.CRON_SECRET;
 
-  if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
-    // If no cron secret configured, skip this check (dev mode)
-    if (cronSecret !== "") {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+  if (cronSecret && cronSecret !== "" && authHeader !== `Bearer ${cronSecret}`) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  // Concurrency lock
+  const acquired = await acquireLock();
+  if (!acquired) {
+    return NextResponse.json(
+      { error: "Sync already in progress" },
+      { status: 409 },
+    );
   }
 
   try {
-    const employeeResult = await syncEmployees();
-    const transactionResult = await syncTransactions();
+    const client = await getBioTimeClient();
+
+    const employeeResult = await syncEmployees(client);
+    const transactionResult = await syncTransactions(client);
 
     // Update last sync time
     const now = new Date().toISOString();
@@ -27,6 +113,13 @@ export async function POST(request: Request) {
       .insert(settings)
       .values({ key: "last_sync_time", value: now })
       .onConflictDoUpdate({ target: settings.key, set: { value: now } });
+
+    await markConnected();
+
+    // Recalculate attendance for affected days (best-effort)
+    if (transactionResult.affectedDays.length > 0) {
+      await recalculateAffectedDays(transactionResult.affectedDays, request.url);
+    }
 
     return NextResponse.json({
       success: true,
@@ -37,92 +130,9 @@ export async function POST(request: Request) {
   } catch (error) {
     const message =
       error instanceof Error ? error.message : "Unknown sync error";
+    await markDisconnected(message);
     return NextResponse.json({ error: message }, { status: 500 });
+  } finally {
+    await releaseLock();
   }
-}
-
-async function syncEmployees() {
-  const remote = await fetchEmployees();
-  let created = 0;
-  let updated = 0;
-
-  for (const emp of remote) {
-    const existing = await db
-      .select()
-      .from(employees)
-      .where(eq(employees.empCode, emp.emp_code))
-      .limit(1);
-
-    if (existing.length) {
-      await db
-        .update(employees)
-        .set({
-          firstName: emp.first_name,
-          lastName: emp.last_name,
-          biotimeId: emp.id,
-          syncedAt: new Date(),
-          updatedAt: new Date(),
-        })
-        .where(eq(employees.empCode, emp.emp_code));
-      updated++;
-    } else {
-      await db.insert(employees).values({
-        empCode: emp.emp_code,
-        firstName: emp.first_name,
-        lastName: emp.last_name,
-        biotimeId: emp.id,
-        syncedAt: new Date(),
-      });
-      created++;
-    }
-  }
-
-  return { total: remote.length, created, updated };
-}
-
-async function syncTransactions() {
-  // Get last sync time
-  const lastSyncRow = await db
-    .select()
-    .from(settings)
-    .where(eq(settings.key, "last_sync_time"))
-    .limit(1);
-
-  const lastSync = lastSyncRow[0]?.value;
-
-  // Default to 24 hours ago if no previous sync
-  const startTime =
-    lastSync || new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-  const endTime = new Date().toISOString();
-
-  const remote = await fetchTransactions(startTime, endTime);
-  let inserted = 0;
-  let skipped = 0;
-
-  for (const tx of remote) {
-    // Skip if already synced (by biotime_id)
-    const existing = await db
-      .select({ id: punchLogs.id })
-      .from(punchLogs)
-      .where(eq(punchLogs.biotimeId, tx.id))
-      .limit(1);
-
-    if (existing.length) {
-      skipped++;
-      continue;
-    }
-
-    await db.insert(punchLogs).values({
-      empCode: tx.emp_code,
-      punchTime: new Date(tx.punch_time),
-      punchState: tx.punch_state,
-      verifyType: tx.verify_type,
-      terminalSn: tx.terminal_sn,
-      biotimeId: tx.id,
-      source: "biotime",
-    });
-    inserted++;
-  }
-
-  return { total: remote.length, inserted, skipped };
 }

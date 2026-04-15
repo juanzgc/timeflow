@@ -14,12 +14,14 @@ import { normalizePunches } from "@/lib/engine/punch-normalizer";
 import { classifyDay, type ShiftSegment } from "@/lib/engine/daily-classifier";
 import { getDailyLimitForDate } from "@/lib/engine/colombian-labor";
 import { formatDateISO, getDayOfWeek } from "@/lib/engine/time-utils";
+import { colombiaStartOfDay, colAddDays } from "@/lib/timezone";
 
 /**
  * POST /api/attendance/calculate
- * Triggers daily attendance calculation for an employee + date range.
+ * Triggers daily attendance calculation for a date range.
  *
- * Body: { employeeId: number, startDate: string, endDate: string }
+ * Body: { startDate: string, endDate: string, employeeId?: number }
+ * If employeeId is omitted, calculates for ALL active employees.
  */
 export async function POST(request: Request) {
   const session = await auth();
@@ -30,29 +32,51 @@ export async function POST(request: Request) {
   const body = await request.json();
   const { employeeId, startDate, endDate } = body;
 
-  if (!employeeId || !startDate || !endDate) {
+  if (!startDate || !endDate) {
     return NextResponse.json(
-      { error: "employeeId, startDate, and endDate are required" },
+      { error: "startDate and endDate are required" },
       { status: 400 },
     );
   }
 
-  // Get employee
-  const [emp] = await db
-    .select()
-    .from(employees)
-    .where(eq(employees.id, employeeId))
-    .limit(1);
-
-  if (!emp) {
-    return NextResponse.json({ error: "Employee not found" }, { status: 404 });
+  // Get employee(s) to process
+  let emps: (typeof employees.$inferSelect)[];
+  if (employeeId) {
+    const [emp] = await db
+      .select()
+      .from(employees)
+      .where(eq(employees.id, employeeId))
+      .limit(1);
+    if (!emp) {
+      return NextResponse.json({ error: "Employee not found" }, { status: 404 });
+    }
+    emps = [emp];
+  } else {
+    emps = await db
+      .select()
+      .from(employees)
+      .where(eq(employees.isActive, true));
   }
 
+  const allResults = [];
+
+  for (const emp of emps) {
+    const empResults = await calculateForEmployee(emp, startDate, endDate);
+    allResults.push(...empResults);
+  }
+
+  return NextResponse.json({ processed: allResults.length, results: allResults });
+}
+
+/** Calculate attendance for a single employee over a date range. */
+async function calculateForEmployee(
+  emp: typeof employees.$inferSelect,
+  startDate: string,
+  endDate: string,
+) {
   // Fetch punches for the date range (with a day buffer for midnight crossings)
-  const bufferStart = new Date(startDate + "T00:00:00");
-  bufferStart.setDate(bufferStart.getDate() - 1);
-  const bufferEnd = new Date(endDate + "T23:59:59");
-  bufferEnd.setDate(bufferEnd.getDate() + 1);
+  const bufferStart = colAddDays(colombiaStartOfDay(startDate), -1);
+  const bufferEnd = colAddDays(colombiaStartOfDay(endDate), 2); // +2 days to cover past end-of-day
 
   const punches = await db
     .select()
@@ -68,7 +92,7 @@ export async function POST(request: Request) {
 
   // Build schedule map for this employee
   const scheduleMap = new Map<number, ShiftSchedule>();
-  const start = new Date(startDate + "T00:00:00");
+  const start = colombiaStartOfDay(startDate);
 
   // Find all weekly schedules that cover the date range
   const schedules = await db
@@ -91,7 +115,7 @@ export async function POST(request: Request) {
       .where(
         and(
           eq(shifts.scheduleId, sched.id),
-          eq(shifts.employeeId, employeeId),
+          eq(shifts.employeeId, emp.id),
         ),
       );
     allShifts.push(...schedShifts);
@@ -161,6 +185,8 @@ export async function POST(request: Request) {
         });
 
       results.push({
+        employeeId: emp.id,
+        name: `${emp.firstName} ${emp.lastName}`,
         workDate: dateStr,
         status: res.isMissingPunch ? "missing_punch" : "absent",
         totalWorkedMins: 0,
@@ -187,7 +213,13 @@ export async function POST(request: Request) {
     );
 
     if (!norm.effectiveOut) {
-      results.push({ workDate: dateStr, status: "missing_punch", totalWorkedMins: 0 });
+      results.push({
+        employeeId: emp.id,
+        name: `${emp.firstName} ${emp.lastName}`,
+        workDate: dateStr,
+        status: "missing_punch",
+        totalWorkedMins: 0,
+      });
       continue;
     }
 
@@ -200,9 +232,6 @@ export async function POST(request: Request) {
 
     // Calculate total break minutes
     const totalBreakMins = dayShifts.reduce((sum, s) => sum + s.breakMinutes, 0);
-
-    // Calculate gap minutes for split shifts
-    // (gap is handled by segment clipping, so pass 0 here)
 
     const dailyLimit = getDailyLimitForDate(res.workDate);
 
@@ -281,6 +310,8 @@ export async function POST(request: Request) {
       });
 
     results.push({
+      employeeId: emp.id,
+      name: `${emp.firstName} ${emp.lastName}`,
       workDate: dateStr,
       status,
       totalWorkedMins: cls.totalWorkedMins,
@@ -290,5 +321,5 @@ export async function POST(request: Request) {
     });
   }
 
-  return NextResponse.json({ processed: results.length, results });
+  return results;
 }

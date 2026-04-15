@@ -1,28 +1,21 @@
+import { colDay, colAddDays, formatColombiaDateISO, colombiaDate, colFullYear, colMonth, colDate } from "@/lib/timezone";
+
 /** Get Monday of the week containing the given date */
 export function getMonday(date: Date): Date {
-  const d = new Date(date);
-  const day = d.getDay(); // 0=Sun, 1=Mon, ..., 6=Sat
+  const day = colDay(date); // 0=Sun, 1=Mon, ..., 6=Sat
   const diff = day === 0 ? -6 : 1 - day;
-  d.setDate(d.getDate() + diff);
-  d.setHours(0, 0, 0, 0);
-  return d;
+  const monday = colAddDays(date, diff);
+  return colombiaDate(colFullYear(monday), colMonth(monday), colDate(monday));
 }
 
 /** Format a Date as YYYY-MM-DD */
 export function formatDateISO(date: Date): string {
-  const y = date.getFullYear();
-  const m = String(date.getMonth() + 1).padStart(2, "0");
-  const d = String(date.getDate()).padStart(2, "0");
-  return `${y}-${m}-${d}`;
+  return formatColombiaDateISO(date);
 }
 
 /** Get array of 7 dates (Mon-Sun) for a week starting on the given Monday */
 export function getWeekDates(monday: Date): Date[] {
-  return Array.from({ length: 7 }, (_, i) => {
-    const d = new Date(monday);
-    d.setDate(d.getDate() + i);
-    return d;
-  });
+  return Array.from({ length: 7 }, (_, i) => colAddDays(monday, i));
 }
 
 /**

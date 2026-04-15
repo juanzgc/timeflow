@@ -9,6 +9,7 @@ import {
 } from "@/drizzle/schema";
 import { auth } from "@/auth";
 import { reconcilePeriod, type DailyRecord } from "@/lib/engine/period-reconciler";
+import { colombiaStartOfDay } from "@/lib/timezone";
 
 /**
  * GET /api/payroll
@@ -58,6 +59,33 @@ export async function POST(request: Request) {
     );
   }
 
+  // Check for overlapping periods (skip test periods)
+  if (status !== "test") {
+    const overlapping = await db
+      .select({
+        periodStart: payrollPeriods.periodStart,
+        periodEnd: payrollPeriods.periodEnd,
+      })
+      .from(payrollPeriods)
+      .where(
+        and(
+          lte(payrollPeriods.periodStart, periodEnd),
+          gte(payrollPeriods.periodEnd, periodStart),
+          sql`${payrollPeriods.status} != 'test'`,
+        ),
+      )
+      .limit(1);
+
+    if (overlapping.length > 0) {
+      return NextResponse.json(
+        {
+          error: `Period overlaps with existing period ${overlapping[0].periodStart} – ${overlapping[0].periodEnd}`,
+        },
+        { status: 409 },
+      );
+    }
+  }
+
   // Get all active employees
   const allEmployees = await db
     .select()
@@ -98,7 +126,7 @@ export async function POST(request: Request) {
 
     // Map DB records to engine's DailyRecord type
     const dailyRecords: DailyRecord[] = records.map((r) => ({
-      workDate: new Date(r.workDate + "T00:00:00"),
+      workDate: colombiaStartOfDay(r.workDate),
       status: r.status,
       totalWorkedMins: r.totalWorkedMins,
       minsOrdinaryDay: r.minsOrdinaryDay,
@@ -116,7 +144,7 @@ export async function POST(request: Request) {
     const recon = reconcilePeriod(
       dailyRecords,
       Number(emp.monthlySalary),
-      new Date(periodStart + "T00:00:00"),
+      colombiaStartOfDay(periodStart),
       compBalanceStart,
     );
 

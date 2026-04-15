@@ -2,6 +2,7 @@
 
 import { getWeekDates, formatDateISO, getWeeklyScheduledMins, getWeeklyExpectedMins, minsToHoursDisplay, getDailyLimitMins } from "@/lib/schedule-utils";
 import { ShiftCell } from "./ShiftCell";
+import { colDate } from "@/lib/timezone";
 
 type Employee = {
   id: number;
@@ -66,11 +67,11 @@ export function ShiftGrid({
   }
 
   return (
-    <div className="overflow-x-auto">
+    <div className="-webkit-overflow-scrolling-touch overflow-x-auto">
       <div className="min-w-[800px]">
         {/* Header row */}
         <div className="grid grid-cols-[180px_repeat(7,1fr)] gap-px rounded-t-lg bg-border">
-          <div className="rounded-tl-lg bg-card px-3 py-2.5">
+          <div className="sticky left-0 z-10 rounded-tl-lg bg-card px-3 py-2.5">
             <span className="text-xs font-semibold text-muted-foreground">
               Employee
             </span>
@@ -85,7 +86,7 @@ export function ShiftGrid({
                 className={`bg-card px-2 py-2.5 text-center ${i === 6 ? "rounded-tr-lg" : ""} ${isHol ? "bg-festivo-bg/30" : ""}`}
               >
                 <div className={`text-xs font-semibold ${isHol ? "text-festivo" : ""}`}>
-                  {DAY_NAMES[i]} {date.getDate()}
+                  {DAY_NAMES[i]} {colDate(date)}
                 </div>
                 <div className="text-[10px] text-muted-foreground/60">
                   ({limit / 60}h)
@@ -136,7 +137,7 @@ export function ShiftGrid({
                 >
                   {/* Employee name column */}
                   <div
-                    className={`flex flex-col justify-center bg-card px-3 py-2 ${isLast ? "rounded-bl-lg" : ""}`}
+                    className={`sticky left-0 z-10 flex flex-col justify-center bg-card px-3 py-2 ${isLast ? "rounded-bl-lg" : ""}`}
                   >
                     <span className="text-[13px] font-medium">
                       {emp.firstName} {emp.lastName.charAt(0)}.

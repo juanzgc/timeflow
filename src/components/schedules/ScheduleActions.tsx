@@ -16,6 +16,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { MoreHorizontalIcon, CopyIcon, Trash2Icon, EraserIcon } from "lucide-react";
+import { COL_TZ } from "@/lib/timezone";
 
 export function ScheduleActions({
   weekStart,
@@ -38,11 +39,11 @@ export function ScheduleActions({
   const [loading, setLoading] = useState(false);
 
   const prevMonday = new Date(weekStart + "T12:00:00");
-  prevMonday.setDate(prevMonday.getDate() - 7);
-  const prevWeekLabel = `${prevMonday.toLocaleDateString("en-US", { month: "short", day: "numeric" })} – ${new Date(prevMonday.getTime() + 6 * 86400000).toLocaleDateString("en-US", { month: "short", day: "numeric" })}`;
+  const prevMondayShifted = new Date(prevMonday.getTime() - 7 * 86400000);
+  const prevWeekLabel = `${prevMondayShifted.toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: COL_TZ })} – ${new Date(prevMondayShifted.getTime() + 6 * 86400000).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: COL_TZ })}`;
 
   const currentMonday = new Date(weekStart + "T12:00:00");
-  const currentWeekLabel = `${currentMonday.toLocaleDateString("en-US", { month: "short", day: "numeric" })} – ${new Date(currentMonday.getTime() + 6 * 86400000).toLocaleDateString("en-US", { month: "short", day: "numeric" })}`;
+  const currentWeekLabel = `${currentMonday.toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: COL_TZ })} – ${new Date(currentMonday.getTime() + 6 * 86400000).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: COL_TZ })}`;
 
   const confirmMessages = {
     copy: `This will copy all shifts from ${prevWeekLabel} to ${currentWeekLabel} for ${groupName}. Continue?`,

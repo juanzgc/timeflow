@@ -5,6 +5,7 @@ import { payrollPeriods, compTransactions } from "@/drizzle/schema";
 import { auth } from "@/auth";
 import { applyCompDecision } from "@/lib/engine/period-reconciler";
 import type { PeriodReconciliation } from "@/lib/engine/period-reconciler";
+import { colombiaStartOfDay } from "@/lib/timezone";
 
 /**
  * PUT /api/payroll/[periodId]/comp-decision
@@ -160,7 +161,7 @@ async function applyAndSave(
     holidaysWorked: period.holidaysWorked,
   };
 
-  const updated = applyCompDecision(recon, clampedBankMins);
+  const updated = applyCompDecision(recon, clampedBankMins, colombiaStartOfDay(period.periodStart));
 
   // Update the payroll period record
   await db

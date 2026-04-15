@@ -9,19 +9,18 @@ import { normalizePunches } from "../punch-normalizer";
 import { classifyDay } from "../daily-classifier";
 import { reconcilePeriod, applyCompDecision, type DailyRecord } from "../period-reconciler";
 import { minutesBetween } from "../time-utils";
+import { colombiaStartOfDay, colSetHours, colHours, colMinutes } from "@/lib/timezone";
 
 function d(dateStr: string, time: string): Date {
   const [h, m] = time.split(":").map(Number);
-  const date = new Date(dateStr + "T00:00:00");
-  date.setHours(h, m, 0, 0);
-  return date;
+  return colSetHours(colombiaStartOfDay(dateStr), h, m, 0);
 }
 
 describe("Scenario 1: Regular day, on time, no excess", () => {
   it("classifies correctly", () => {
     // Schedule: Mon (7h limit), 8:00-15:00
     // Punch in: 7:55, Punch out: 15:00
-    const workDate = new Date("2026-04-13T00:00:00");
+    const workDate = colombiaStartOfDay("2026-04-13");
     const norm = normalizePunches(
       d("2026-04-13", "07:55"),
       d("2026-04-13", "15:00"),
@@ -31,10 +30,10 @@ describe("Scenario 1: Regular day, on time, no excess", () => {
       false,
     );
 
-    expect(norm.effectiveIn.getHours()).toBe(8);
-    expect(norm.effectiveIn.getMinutes()).toBe(0);
-    expect(norm.effectiveOut!.getHours()).toBe(15);
-    expect(norm.effectiveOut!.getMinutes()).toBe(0);
+    expect(colHours(norm.effectiveIn)).toBe(8);
+    expect(colMinutes(norm.effectiveIn)).toBe(0);
+    expect(colHours(norm.effectiveOut!)).toBe(15);
+    expect(colMinutes(norm.effectiveOut!)).toBe(0);
     expect(norm.lateMinutes).toBe(0);
 
     const cls = classifyDay(
@@ -57,7 +56,7 @@ describe("Scenario 2: Late arrival", () => {
   it("classifies correctly", () => {
     // Schedule: Mon (7h), 10:00-17:00
     // Punch in: 10:22, Punch out: 17:00
-    const workDate = new Date("2026-04-13T00:00:00");
+    const workDate = colombiaStartOfDay("2026-04-13");
     const norm = normalizePunches(
       d("2026-04-13", "10:22"),
       d("2026-04-13", "17:00"),
@@ -67,8 +66,8 @@ describe("Scenario 2: Late arrival", () => {
       false,
     );
 
-    expect(norm.effectiveIn.getHours()).toBe(10);
-    expect(norm.effectiveIn.getMinutes()).toBe(22);
+    expect(colHours(norm.effectiveIn)).toBe(10);
+    expect(colMinutes(norm.effectiveIn)).toBe(22);
     expect(norm.lateMinutes).toBe(22);
 
     const cls = classifyDay(
@@ -87,7 +86,7 @@ describe("Scenario 2: Late arrival", () => {
 
 describe("Scenario 3: Clock-out after schedule, 15-min floor (no credit)", () => {
   it("12 min excess rounds to 0", () => {
-    const workDate = new Date("2026-04-13T00:00:00");
+    const workDate = colombiaStartOfDay("2026-04-13");
     const norm = normalizePunches(
       d("2026-04-13", "10:00"),
       d("2026-04-13", "17:12"),
@@ -98,8 +97,8 @@ describe("Scenario 3: Clock-out after schedule, 15-min floor (no credit)", () =>
     );
 
     // effective_out should be 17:00 (12 min excess → floor = 0)
-    expect(norm.effectiveOut!.getHours()).toBe(17);
-    expect(norm.effectiveOut!.getMinutes()).toBe(0);
+    expect(colHours(norm.effectiveOut!)).toBe(17);
+    expect(colMinutes(norm.effectiveOut!)).toBe(0);
 
     const cls = classifyDay(
       norm.effectiveIn,
@@ -117,7 +116,7 @@ describe("Scenario 3: Clock-out after schedule, 15-min floor (no credit)", () =>
 
 describe("Scenario 4: Clock-out after schedule, 15-min earned", () => {
   it("15 min excess rounds to 15", () => {
-    const workDate = new Date("2026-04-13T00:00:00");
+    const workDate = colombiaStartOfDay("2026-04-13");
     const norm = normalizePunches(
       d("2026-04-13", "10:00"),
       d("2026-04-13", "17:15"),
@@ -127,8 +126,8 @@ describe("Scenario 4: Clock-out after schedule, 15-min earned", () => {
       false,
     );
 
-    expect(norm.effectiveOut!.getHours()).toBe(17);
-    expect(norm.effectiveOut!.getMinutes()).toBe(15);
+    expect(colHours(norm.effectiveOut!)).toBe(17);
+    expect(colMinutes(norm.effectiveOut!)).toBe(15);
 
     const cls = classifyDay(
       norm.effectiveIn,
@@ -149,7 +148,7 @@ describe("Scenario 5: Night shift crossing midnight", () => {
     // Schedule: Sat (8h), 17:00-01:00 crosses midnight
     // Sunday is regular (not a holiday)
     // Punch in: 16:55, Punch out: 01:10
-    const workDate = new Date("2026-04-18T00:00:00"); // Saturday
+    const workDate = colombiaStartOfDay("2026-04-18"); // Saturday
     const norm = normalizePunches(
       d("2026-04-18", "16:55"),
       d("2026-04-19", "01:10"),
@@ -159,9 +158,9 @@ describe("Scenario 5: Night shift crossing midnight", () => {
       true,
     );
 
-    expect(norm.effectiveIn.getHours()).toBe(17); // capped at schedule
-    expect(norm.effectiveOut!.getHours()).toBe(1); // 10 min excess → floor = 0
-    expect(norm.effectiveOut!.getMinutes()).toBe(0);
+    expect(colHours(norm.effectiveIn)).toBe(17); // capped at schedule
+    expect(colHours(norm.effectiveOut!)).toBe(1); // 10 min excess → floor = 0
+    expect(colMinutes(norm.effectiveOut!)).toBe(0);
 
     const cls = classifyDay(
       norm.effectiveIn,
@@ -189,7 +188,7 @@ describe("Scenario 6: Night shift crossing into a holiday", () => {
     // Schedule: Dec 24 (Thu, 7h), 17:00-00:00
     // Dec 25 is Navidad (holiday)
     // Punch in: 17:00, Punch out: 01:15 (Dec 25)
-    const workDate = new Date("2026-12-24T00:00:00");
+    const workDate = colombiaStartOfDay("2026-12-24");
     const norm = normalizePunches(
       d("2026-12-24", "17:00"),
       d("2026-12-25", "01:15"),
@@ -202,8 +201,8 @@ describe("Scenario 6: Night shift crossing into a holiday", () => {
     // Schedule end = 00:00 (next day). Excess = 75 min.
     // floorTo15Min(75) = 75 (75 is exactly 5 × 15-min blocks).
     // effective_out = 00:00 + 75 min = 01:15
-    expect(norm.effectiveOut!.getHours()).toBe(1);
-    expect(norm.effectiveOut!.getMinutes()).toBe(15);
+    expect(colHours(norm.effectiveOut!)).toBe(1);
+    expect(colMinutes(norm.effectiveOut!)).toBe(15);
 
     const totalMins = minutesBetween(norm.effectiveIn, norm.effectiveOut!);
     expect(totalMins).toBe(495); // 17:00 to 01:15 = 8h 15m
@@ -240,7 +239,7 @@ describe("Scenario 7: Turno partido (split shift)", () => {
   it("correctly handles split shift with gap subtraction", () => {
     // Schedule: Mon (7h), 12:00-16:00 / 18:00-22:00, gap = 2h
     // Punch in: 12:05, Punch out: 22:00
-    const workDate = new Date("2026-04-13T00:00:00");
+    const workDate = colombiaStartOfDay("2026-04-13");
     const norm = normalizePunches(
       d("2026-04-13", "12:05"),
       d("2026-04-13", "22:00"),
@@ -250,11 +249,11 @@ describe("Scenario 7: Turno partido (split shift)", () => {
       false,
     );
 
-    expect(norm.effectiveIn.getHours()).toBe(12);
-    expect(norm.effectiveIn.getMinutes()).toBe(5);
+    expect(colHours(norm.effectiveIn)).toBe(12);
+    expect(colMinutes(norm.effectiveIn)).toBe(5);
     expect(norm.lateMinutes).toBe(5);
-    expect(norm.effectiveOut!.getHours()).toBe(22);
-    expect(norm.effectiveOut!.getMinutes()).toBe(0);
+    expect(colHours(norm.effectiveOut!)).toBe(22);
+    expect(colMinutes(norm.effectiveOut!)).toBe(0);
 
     const cls = classifyDay(
       norm.effectiveIn,
@@ -291,7 +290,7 @@ describe("Scenario 8: Period reconciliation — cheapest-first", () => {
     // Expected: 4×7h (Mon-Thu) + 2×8h (Fri-Sat) = 44h = 2640 min
     const dailyRecords: DailyRecord[] = [
       {
-        workDate: new Date("2026-04-07"),
+        workDate: colombiaStartOfDay("2026-04-07"),
         status: "on-time",
         totalWorkedMins: 600,
         minsOrdinaryDay: 300,
@@ -306,7 +305,7 @@ describe("Scenario 8: Period reconciliation — cheapest-first", () => {
         dayType: "regular",
       },
       {
-        workDate: new Date("2026-04-08"),
+        workDate: colombiaStartOfDay("2026-04-08"),
         status: "on-time",
         totalWorkedMins: 420,
         minsOrdinaryDay: 420,
@@ -321,7 +320,7 @@ describe("Scenario 8: Period reconciliation — cheapest-first", () => {
         dayType: "regular",
       },
       {
-        workDate: new Date("2026-04-09"),
+        workDate: colombiaStartOfDay("2026-04-09"),
         status: "on-time",
         totalWorkedMins: 420,
         minsOrdinaryDay: 420,
@@ -336,7 +335,7 @@ describe("Scenario 8: Period reconciliation — cheapest-first", () => {
         dayType: "regular",
       },
       {
-        workDate: new Date("2026-04-10"),
+        workDate: colombiaStartOfDay("2026-04-10"),
         status: "on-time",
         totalWorkedMins: 360,
         minsOrdinaryDay: 360,
@@ -351,7 +350,7 @@ describe("Scenario 8: Period reconciliation — cheapest-first", () => {
         dayType: "regular",
       },
       {
-        workDate: new Date("2026-04-11"),
+        workDate: colombiaStartOfDay("2026-04-11"),
         status: "on-time",
         totalWorkedMins: 480,
         minsOrdinaryDay: 480,
@@ -366,7 +365,7 @@ describe("Scenario 8: Period reconciliation — cheapest-first", () => {
         dayType: "regular",
       },
       {
-        workDate: new Date("2026-04-12"),
+        workDate: colombiaStartOfDay("2026-04-12"),
         status: "on-time",
         totalWorkedMins: 540,
         minsOrdinaryDay: 420,
@@ -385,7 +384,7 @@ describe("Scenario 8: Period reconciliation — cheapest-first", () => {
     const result = reconcilePeriod(
       dailyRecords,
       2_000_000, // monthly salary
-      new Date("2026-04-07"),
+      colombiaStartOfDay("2026-04-07"),
       0, // comp balance start
     );
 
@@ -408,7 +407,7 @@ describe("Scenario 9: Period reconciliation — comp offset", () => {
     // Same daily records as scenario 8
     const dailyRecords: DailyRecord[] = [
       {
-        workDate: new Date("2026-04-07"),
+        workDate: colombiaStartOfDay("2026-04-07"),
         status: "on-time",
         totalWorkedMins: 600,
         minsOrdinaryDay: 300,
@@ -423,7 +422,7 @@ describe("Scenario 9: Period reconciliation — comp offset", () => {
         dayType: "regular",
       },
       {
-        workDate: new Date("2026-04-08"),
+        workDate: colombiaStartOfDay("2026-04-08"),
         status: "on-time",
         totalWorkedMins: 420,
         minsOrdinaryDay: 420,
@@ -438,7 +437,7 @@ describe("Scenario 9: Period reconciliation — comp offset", () => {
         dayType: "regular",
       },
       {
-        workDate: new Date("2026-04-09"),
+        workDate: colombiaStartOfDay("2026-04-09"),
         status: "on-time",
         totalWorkedMins: 420,
         minsOrdinaryDay: 420,
@@ -453,7 +452,7 @@ describe("Scenario 9: Period reconciliation — comp offset", () => {
         dayType: "regular",
       },
       {
-        workDate: new Date("2026-04-10"),
+        workDate: colombiaStartOfDay("2026-04-10"),
         status: "on-time",
         totalWorkedMins: 360,
         minsOrdinaryDay: 360,
@@ -468,7 +467,7 @@ describe("Scenario 9: Period reconciliation — comp offset", () => {
         dayType: "regular",
       },
       {
-        workDate: new Date("2026-04-11"),
+        workDate: colombiaStartOfDay("2026-04-11"),
         status: "on-time",
         totalWorkedMins: 480,
         minsOrdinaryDay: 480,
@@ -483,7 +482,7 @@ describe("Scenario 9: Period reconciliation — comp offset", () => {
         dayType: "regular",
       },
       {
-        workDate: new Date("2026-04-12"),
+        workDate: colombiaStartOfDay("2026-04-12"),
         status: "on-time",
         totalWorkedMins: 540,
         minsOrdinaryDay: 420,
@@ -502,7 +501,7 @@ describe("Scenario 9: Period reconciliation — comp offset", () => {
     const result = reconcilePeriod(
       dailyRecords,
       2_000_000,
-      new Date("2026-04-07"),
+      colombiaStartOfDay("2026-04-07"),
       -120, // comp balance: employee owes 2h
     );
 
@@ -511,7 +510,7 @@ describe("Scenario 9: Period reconciliation — comp offset", () => {
     expect(result.otAvailableAfterOffset).toBe(60); // 180 - 120
 
     // Apply manager decision: bank 30, pay 30
-    const withDecision = applyCompDecision(result, 30);
+    const withDecision = applyCompDecision(result, 30, colombiaStartOfDay("2026-04-07"));
     expect(withDecision.otBankedMins).toBe(30);
 
     const otPaid = withDecision.otAvailableAfterOffset - 30;
@@ -530,7 +529,7 @@ describe("Scenario 10: No overtime — daily excess absorbed by short days", () 
   it("produces zero overtime when period total matches expected", () => {
     const dailyRecords: DailyRecord[] = [
       {
-        workDate: new Date("2026-04-07"),
+        workDate: colombiaStartOfDay("2026-04-07"),
         status: "on-time",
         totalWorkedMins: 600,
         minsOrdinaryDay: 300,
@@ -545,7 +544,7 @@ describe("Scenario 10: No overtime — daily excess absorbed by short days", () 
         dayType: "regular",
       },
       {
-        workDate: new Date("2026-04-08"),
+        workDate: colombiaStartOfDay("2026-04-08"),
         status: "on-time",
         totalWorkedMins: 420,
         minsOrdinaryDay: 420,
@@ -560,7 +559,7 @@ describe("Scenario 10: No overtime — daily excess absorbed by short days", () 
         dayType: "regular",
       },
       {
-        workDate: new Date("2026-04-09"),
+        workDate: colombiaStartOfDay("2026-04-09"),
         status: "on-time",
         totalWorkedMins: 420,
         minsOrdinaryDay: 420,
@@ -575,7 +574,7 @@ describe("Scenario 10: No overtime — daily excess absorbed by short days", () 
         dayType: "regular",
       },
       {
-        workDate: new Date("2026-04-10"),
+        workDate: colombiaStartOfDay("2026-04-10"),
         status: "on-time",
         totalWorkedMins: 240, // Manager reduced schedule, -180 short
         minsOrdinaryDay: 240,
@@ -590,7 +589,7 @@ describe("Scenario 10: No overtime — daily excess absorbed by short days", () 
         dayType: "regular",
       },
       {
-        workDate: new Date("2026-04-11"),
+        workDate: colombiaStartOfDay("2026-04-11"),
         status: "on-time",
         totalWorkedMins: 480,
         minsOrdinaryDay: 480,
@@ -605,7 +604,7 @@ describe("Scenario 10: No overtime — daily excess absorbed by short days", () 
         dayType: "regular",
       },
       {
-        workDate: new Date("2026-04-12"),
+        workDate: colombiaStartOfDay("2026-04-12"),
         status: "on-time",
         totalWorkedMins: 480,
         minsOrdinaryDay: 480,
@@ -624,7 +623,7 @@ describe("Scenario 10: No overtime — daily excess absorbed by short days", () 
     const result = reconcilePeriod(
       dailyRecords,
       2_000_000,
-      new Date("2026-04-07"),
+      colombiaStartOfDay("2026-04-07"),
       0,
     );
 

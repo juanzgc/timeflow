@@ -13,6 +13,7 @@ import {
   formatDateISO,
   BUSINESS_DAY_START_HOUR,
 } from "./time-utils";
+import { colHours, colMinutes, colAddDays, colDay, colombiaStartOfDay } from "@/lib/timezone";
 
 export interface PunchLog {
   empCode: string;
@@ -68,17 +69,16 @@ export function resolvePunches(
     // If the punch is between 6:00 AM and 6:30 AM, check if the employee
     // had a midnight-crossing shift the previous day. If so, attribute
     // this punch to the previous business day.
-    const hour = punch.punchTime.getHours();
-    const minute = punch.punchTime.getMinutes();
+    const hour = colHours(punch.punchTime);
+    const minute = colMinutes(punch.punchTime);
 
     if (
       hour === BUSINESS_DAY_START_HOUR &&
       minute <= 30
     ) {
       // Check previous day's schedule for midnight-crossing shift
-      const prevDay = new Date(businessDay);
-      prevDay.setDate(prevDay.getDate() - 1);
-      const prevDow = prevDay.getDay() === 0 ? 6 : prevDay.getDay() - 1;
+      const prevDay = colAddDays(businessDay, -1);
+      const prevDow = colDay(prevDay) === 0 ? 6 : colDay(prevDay) - 1;
       const prevSchedule = scheduleMap.get(prevDow);
 
       if (prevSchedule?.crossesMidnight) {
@@ -97,7 +97,7 @@ export function resolvePunches(
   const results: ResolvedPunches[] = [];
 
   for (const [dateStr, dayPunches] of dayMap) {
-    const workDate = new Date(dateStr + "T00:00:00");
+    const workDate = colombiaStartOfDay(dateStr);
     // Sort ascending within the day
     dayPunches.sort((a, b) => a.getTime() - b.getTime());
 

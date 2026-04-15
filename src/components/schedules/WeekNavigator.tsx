@@ -2,6 +2,7 @@
 
 import { ChevronLeftIcon, ChevronRightIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { colMonth, colDate, colFullYear, colDay, colAddDays, colombiaDate } from "@/lib/timezone";
 
 const MONTH_NAMES = [
   "Jan", "Feb", "Mar", "Apr", "May", "Jun",
@@ -9,16 +10,15 @@ const MONTH_NAMES = [
 ];
 
 function formatWeekRange(monday: Date): string {
-  const sunday = new Date(monday);
-  sunday.setDate(sunday.getDate() + 6);
+  const sunday = colAddDays(monday, 6);
 
-  const mMonth = MONTH_NAMES[monday.getMonth()];
-  const sMonth = MONTH_NAMES[sunday.getMonth()];
-  const mDay = monday.getDate();
-  const sDay = sunday.getDate();
-  const year = monday.getFullYear();
+  const mMonth = MONTH_NAMES[colMonth(monday)];
+  const sMonth = MONTH_NAMES[colMonth(sunday)];
+  const mDay = colDate(monday);
+  const sDay = colDate(sunday);
+  const year = colFullYear(monday);
 
-  if (monday.getMonth() === sunday.getMonth()) {
+  if (colMonth(monday) === colMonth(sunday)) {
     return `Week of ${mMonth} ${mDay} – ${sDay}, ${year}`;
   }
   return `Week of ${mMonth} ${mDay} – ${sMonth} ${sDay}, ${year}`;
@@ -32,25 +32,19 @@ export function WeekNavigator({
   onWeekChange: (date: Date) => void;
 }) {
   const goBack = () => {
-    const prev = new Date(weekStart);
-    prev.setDate(prev.getDate() - 7);
-    onWeekChange(prev);
+    onWeekChange(colAddDays(weekStart, -7));
   };
 
   const goForward = () => {
-    const next = new Date(weekStart);
-    next.setDate(next.getDate() + 7);
-    onWeekChange(next);
+    onWeekChange(colAddDays(weekStart, 7));
   };
 
   const goToday = () => {
     const today = new Date();
-    const day = today.getDay();
+    const day = colDay(today);
     const diff = day === 0 ? -6 : 1 - day;
-    const monday = new Date(today);
-    monday.setDate(today.getDate() + diff);
-    monday.setHours(0, 0, 0, 0);
-    onWeekChange(monday);
+    const monday = colAddDays(today, diff);
+    onWeekChange(colombiaDate(colFullYear(monday), colMonth(monday), colDate(monday)));
   };
 
   return (

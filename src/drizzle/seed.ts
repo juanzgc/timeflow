@@ -52,6 +52,9 @@ async function seed() {
       { key: "daily_limit_sun_thu", value: "420" },
       { key: "daily_limit_fri_sat", value: "480" },
       { key: "last_sync_time", value: "" },
+      { key: "biotime_connected", value: "false" },
+      { key: "biotime_last_error", value: "" },
+      { key: "sync_in_progress", value: "false" },
     ])
     .onConflictDoNothing();
 

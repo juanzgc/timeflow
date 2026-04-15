@@ -3,6 +3,7 @@ import { and, eq, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { employees, groups, dailyAttendance } from "@/drizzle/schema";
 import { auth } from "@/auth";
+import { todayColombiaISO, colAddDays, formatColombiaDateISO } from "@/lib/timezone";
 
 export async function GET() {
   const session = await auth();
@@ -11,7 +12,7 @@ export async function GET() {
   }
 
   const today = new Date();
-  const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+  const todayStr = todayColombiaISO();
 
   // Get all active employees with their group and today's attendance
   const rows = await db
@@ -66,9 +67,8 @@ export async function GET() {
   const missingPunch = rows.filter((r) => r.isMissingPunch).length;
 
   // Calculate last week same day for trends
-  const lastWeekDate = new Date(today);
-  lastWeekDate.setDate(lastWeekDate.getDate() - 7);
-  const lastWeekStr = `${lastWeekDate.getFullYear()}-${String(lastWeekDate.getMonth() + 1).padStart(2, "0")}-${String(lastWeekDate.getDate()).padStart(2, "0")}`;
+  const lastWeekDate = colAddDays(today, -7);
+  const lastWeekStr = formatColombiaDateISO(lastWeekDate);
 
   const lastWeekRows = await db
     .select({

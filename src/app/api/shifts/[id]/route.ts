@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { shifts, compTransactions } from "@/drizzle/schema";
 import { auth } from "@/auth";
 import { doShiftsOverlap, getGapBetweenShifts } from "@/lib/schedule-utils";
+import { todayColombiaISO } from "@/lib/timezone";
 
 // PUT /api/shifts/[id] — update a shift
 export async function PUT(
@@ -173,7 +174,7 @@ export async function DELETE(
 
     await db.insert(compTransactions).values({
       employeeId: existing.employeeId,
-      transactionDate: new Date().toISOString().split("T")[0],
+      transactionDate: todayColombiaISO(),
       type: "owed_offset",
       minutes: existing.compDebitMins,
       balanceAfter: newBalance,

@@ -3,6 +3,18 @@
  * All times are Colombia time (UTC-5, no daylight saving).
  */
 
+import {
+  colDay,
+  colHours,
+  colDate,
+  colMonth,
+  colFullYear,
+  colSetHours,
+  colAddDays,
+  colombiaDate,
+  formatColombiaDateISO,
+} from "@/lib/timezone";
+
 /** Parse "HH:MM" string to minutes since midnight */
 export function parseTimeToMinutes(time: string): number {
   const [h, m] = time.split(":").map(Number);
@@ -27,7 +39,7 @@ export function floorTo15Min(minutes: number): number {
  * JS Date uses 0=Sunday, 1=Monday, ..., 6=Saturday.
  */
 export function getDayOfWeek(date: Date): number {
-  const jsDay = date.getDay(); // 0=Sun
+  const jsDay = colDay(date); // 0=Sun
   return jsDay === 0 ? 6 : jsDay - 1;
 }
 
@@ -39,9 +51,7 @@ export function minutesBetween(start: Date, end: Date): number {
 /** Create a Date from a work date + "HH:MM" time string */
 export function combineDateAndTime(workDate: Date, time: string): Date {
   const mins = parseTimeToMinutes(time);
-  const d = new Date(workDate);
-  d.setHours(Math.floor(mins / 60), mins % 60, 0, 0);
-  return d;
+  return colSetHours(workDate, Math.floor(mins / 60), mins % 60, 0);
 }
 
 /**
@@ -56,7 +66,7 @@ export function combineDateAndTimeWithCrossing(
 ): Date {
   const d = combineDateAndTime(workDate, time);
   if (isPostMidnight) {
-    d.setDate(d.getDate() + 1);
+    return colAddDays(d, 1);
   }
   return d;
 }
@@ -84,37 +94,30 @@ export const BUSINESS_DAY_START_HOUR = 6;
  * If punch hour < 6, it belongs to the previous calendar day.
  */
 export function getBusinessDay(punchTime: Date): Date {
-  const d = new Date(punchTime);
-  if (d.getHours() < BUSINESS_DAY_START_HOUR) {
-    d.setDate(d.getDate() - 1);
+  if (colHours(punchTime) < BUSINESS_DAY_START_HOUR) {
+    const prev = colAddDays(punchTime, -1);
+    return colombiaDate(colFullYear(prev), colMonth(prev), colDate(prev));
   }
-  // Return date-only (midnight)
-  return new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  return colombiaDate(colFullYear(punchTime), colMonth(punchTime), colDate(punchTime));
 }
 
 /** Format Date as "YYYY-MM-DD" */
 export function formatDateISO(date: Date): string {
-  const y = date.getFullYear();
-  const m = String(date.getMonth() + 1).padStart(2, "0");
-  const d = String(date.getDate()).padStart(2, "0");
-  return `${y}-${m}-${d}`;
+  return formatColombiaDateISO(date);
 }
 
-/** Check if two dates are the same calendar day */
+/** Check if two dates are the same calendar day (Colombia time) */
 export function isSameDay(a: Date, b: Date): boolean {
   return (
-    a.getFullYear() === b.getFullYear() &&
-    a.getMonth() === b.getMonth() &&
-    a.getDate() === b.getDate()
+    colFullYear(a) === colFullYear(b) &&
+    colMonth(a) === colMonth(b) &&
+    colDate(a) === colDate(b)
   );
 }
 
-/** Get midnight (start of next calendar day) for a given date */
+/** Get midnight (start of next calendar day) for a given date in Colombia time */
 export function getMidnight(date: Date): Date {
-  const d = new Date(date);
-  d.setDate(d.getDate() + 1);
-  d.setHours(0, 0, 0, 0);
-  return d;
+  return colombiaDate(colFullYear(date), colMonth(date), colDate(date) + 1);
 }
 
 /** Clamp a value between min and max */

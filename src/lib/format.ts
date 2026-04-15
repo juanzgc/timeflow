@@ -3,6 +3,8 @@
  * Used across all dashboard/reporting pages.
  */
 
+import { COL_TZ, todayColombiaISO, colDay, colAddDays, formatColombiaDateISO } from "@/lib/timezone";
+
 /** Convert minutes to "Xh Ym" display string. */
 export function formatMins(mins: number): string {
   if (mins === 0) return "0m";
@@ -38,6 +40,7 @@ export function formatDateFull(d: Date | string): string {
     year: "numeric",
     month: "long",
     day: "numeric",
+    timeZone: COL_TZ,
   });
 }
 
@@ -48,13 +51,14 @@ export function formatDateMedium(d: Date | string): string {
     year: "numeric",
     month: "short",
     day: "numeric",
+    timeZone: COL_TZ,
   });
 }
 
 /** Format as "Apr 14". */
 export function formatDateShort(d: Date | string): string {
   const date = typeof d === "string" ? new Date(d + "T12:00:00") : d;
-  return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  return date.toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: COL_TZ });
 }
 
 /** Format period range as "Mar 28 – Apr 12, 2026". */
@@ -70,35 +74,35 @@ export function formatTime(ts: Date | string | null): string {
     hour: "numeric",
     minute: "2-digit",
     hour12: true,
+    timeZone: COL_TZ,
   });
 }
 
 /** Get day name from ISO date string. */
 export function getDayName(d: string): string {
   const date = new Date(d + "T12:00:00");
-  return date.toLocaleDateString("en-US", { weekday: "short" });
+  return date.toLocaleDateString("en-US", { weekday: "short", timeZone: COL_TZ });
 }
 
-/** Get YYYY-MM-DD string for today in local timezone. */
+/** Get YYYY-MM-DD string for today in Colombia timezone. */
 export function todayISO(): string {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  return todayColombiaISO();
 }
 
 /** Get Monday of the current week as YYYY-MM-DD. */
 export function currentWeekMonday(): string {
   const d = new Date();
-  const day = d.getDay(); // 0=Sun
+  const day = colDay(d); // 0=Sun
   const diff = day === 0 ? 6 : day - 1;
-  d.setDate(d.getDate() - diff);
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  const monday = colAddDays(d, -diff);
+  return formatColombiaDateISO(monday);
 }
 
 /** Get Sunday of the current week as YYYY-MM-DD. */
 export function currentWeekSunday(): string {
   const d = new Date();
-  const day = d.getDay(); // 0=Sun
+  const day = colDay(d); // 0=Sun
   const diff = day === 0 ? 0 : 7 - day;
-  d.setDate(d.getDate() + diff);
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  const sunday = colAddDays(d, diff);
+  return formatColombiaDateISO(sunday);
 }

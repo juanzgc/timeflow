@@ -23,6 +23,7 @@ import {
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { formatMins, formatMinsAsHours, formatTime, formatDateFull, formatPeriodRange } from "@/lib/format";
+import { COL_TZ } from "@/lib/timezone";
 
 const GROUP_COLORS: Record<string, string> = {
   Kitchen: "var(--group-kitchen)",
@@ -77,10 +78,17 @@ type CompBalance = {
 };
 
 type AlertData = {
-  missingPunches: { employeeId: number; name: string; detail: string }[];
+  missingPunches: { employeeId: number; name: string; date?: string; detail: string }[];
   overduePeriods: { periodStart: string; periodEnd: string }[];
   hasActivePeriod: boolean;
   activePeriod: { periodStart: string; periodEnd: string } | null;
+  missingSalary?: { employeeId: number; name: string }[];
+  missingSalaryCount?: number;
+  missingCedulaCount?: number;
+  highCompBalances?: { employeeId: number; name: string; hours: number }[];
+  negativeCompBalances?: { employeeId: number; name: string; hours: number }[];
+  syncStale?: boolean;
+  lastSyncTime?: string | null;
 };
 
 export default function DashboardPage() {
@@ -306,6 +314,67 @@ export default function DashboardPage() {
                 Create Period <ArrowRightIcon className="ml-1 size-3" />
               </Button>
             </Link>
+          </div>
+        </div>
+      )}
+
+      {alerts && (alerts.missingSalaryCount ?? 0) > 0 && (
+        <div className="rounded-xl border border-warning/15 bg-warning-bg p-4">
+          <div className="flex items-center gap-2">
+            <AlertTriangleIcon className="size-4 text-warning-text" />
+            <span className="text-[13px] font-bold text-warning-text">
+              {alerts.missingSalaryCount} employee{(alerts.missingSalaryCount ?? 0) !== 1 && "s"} missing salary
+            </span>
+            <span className="text-[11px] text-warning-text/70">
+              — costs cannot be calculated
+            </span>
+            <Link href="/employees" className="ml-auto">
+              <Button variant="outline" size="xs" className="border-warning/20 bg-white text-warning-text">
+                Edit Employees <ArrowRightIcon className="ml-1 size-3" />
+              </Button>
+            </Link>
+          </div>
+        </div>
+      )}
+
+      {alerts && (alerts.missingCedulaCount ?? 0) > 0 && (
+        <div className="rounded-xl border border-foreground/5 bg-secondary/50 p-4">
+          <div className="flex items-center gap-2">
+            <InfoIcon className="size-4 text-muted-foreground" />
+            <span className="text-[13px] font-medium text-muted-foreground">
+              {alerts.missingCedulaCount} employee{(alerts.missingCedulaCount ?? 0) !== 1 && "s"} missing cédula
+            </span>
+            <span className="text-[11px] text-muted-foreground/70">
+              — Siigo export will be blocked
+            </span>
+            <Link href="/employees" className="ml-auto">
+              <Button variant="outline" size="xs" className="text-muted-foreground">
+                Edit <ArrowRightIcon className="ml-1 size-3" />
+              </Button>
+            </Link>
+          </div>
+        </div>
+      )}
+
+      {alerts?.syncStale && (
+        <div className="rounded-xl border border-warning/15 bg-warning-bg p-4">
+          <div className="flex items-center gap-2">
+            <AlertTriangleIcon className="size-4 text-warning-text" />
+            <span className="text-[13px] font-bold text-warning-text">
+              BioTime sync is stale
+            </span>
+            <span className="text-[11px] text-warning-text/70">
+              — last synced {alerts.lastSyncTime ? new Date(alerts.lastSyncTime).toLocaleTimeString("en-US", { timeZone: COL_TZ }) : "never"}
+            </span>
+            <Button
+              variant="outline"
+              size="xs"
+              className="ml-auto border-warning/20 bg-white text-warning-text"
+              onClick={handleSync}
+              disabled={syncing}
+            >
+              Sync Now
+            </Button>
           </div>
         </div>
       )}

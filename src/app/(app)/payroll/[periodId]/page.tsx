@@ -24,7 +24,10 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import {
   ArrowLeftIcon,
+  DownloadIcon,
+  FileSpreadsheetIcon,
   LockIcon,
+  PackageIcon,
   RefreshCwIcon,
 } from "lucide-react";
 import Link from "next/link";
@@ -88,6 +91,10 @@ export default function PeriodDetailPage() {
   const [recalculating, setRecalculating] = useState(false);
   const [finalizeOpen, setFinalizeOpen] = useState(false);
   const [finalizing, setFinalizing] = useState(false);
+  const [finalizeError, setFinalizeError] = useState<{
+    message: string;
+    missingPunches?: { employee: string; date: string; detail: string }[];
+  } | null>(null);
 
   const fetchPeriod = useCallback(async () => {
     setLoading(true);
@@ -212,15 +219,24 @@ export default function PeriodDetailPage() {
 
   const handleFinalize = async () => {
     setFinalizing(true);
+    setFinalizeError(null);
     try {
       // Save comp decisions first
       await saveDecisions();
       // Then finalize
-      await fetch(`/api/payroll/${periodId}/finalize`, {
+      const res = await fetch(`/api/payroll/${periodId}/finalize`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status: "finalized" }),
       });
+      if (!res.ok) {
+        const data = await res.json();
+        setFinalizeError({
+          message: data.error,
+          missingPunches: data.missingPunches,
+        });
+        return;
+      }
       setFinalizeOpen(false);
       await fetchPeriod();
     } finally {
@@ -275,7 +291,7 @@ export default function PeriodDetailPage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          {!isFinalized && (
+          {!isFinalized ? (
             <>
               <Button
                 variant="outline"
@@ -298,12 +314,58 @@ export default function PeriodDetailPage() {
                 {saving ? "Saving..." : "Save Decisions"}
               </Button>
               <Button
+                variant="outline"
+                size="sm"
+                onClick={() =>
+                  window.open(`/api/payroll/${periodId}/export/summary`)
+                }
+                className="gap-1.5"
+              >
+                <FileSpreadsheetIcon className="size-3.5" />
+                Summary
+              </Button>
+              <Button
                 size="sm"
                 onClick={() => setFinalizeOpen(true)}
                 className="gap-1.5"
               >
                 <LockIcon className="size-3.5" />
                 Finalize Period
+              </Button>
+            </>
+          ) : (
+            <>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() =>
+                  window.open(`/api/payroll/${periodId}/export/summary`)
+                }
+                className="gap-1.5"
+              >
+                <FileSpreadsheetIcon className="size-3.5" />
+                Summary
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() =>
+                  window.open(`/api/payroll/${periodId}/export/siigo`)
+                }
+                className="gap-1.5"
+              >
+                <DownloadIcon className="size-3.5" />
+                Siigo Export
+              </Button>
+              <Button
+                size="sm"
+                onClick={() =>
+                  window.open(`/api/payroll/${periodId}/export/both`)
+                }
+                className="gap-1.5"
+              >
+                <PackageIcon className="size-3.5" />
+                Download All
               </Button>
             </>
           )}
@@ -581,6 +643,28 @@ export default function PeriodDetailPage() {
               export after finalizing. This action cannot be undone.
             </DialogDescription>
           </DialogHeader>
+          {finalizeError && (
+            <div className="rounded-lg border border-danger/30 bg-danger/5 p-3 text-xs">
+              <p className="font-semibold text-danger-text">
+                {finalizeError.message}
+              </p>
+              {finalizeError.missingPunches && (
+                <ul className="mt-2 space-y-1">
+                  {finalizeError.missingPunches.map((mp, i) => (
+                    <li key={i} className="text-muted-foreground">
+                      {mp.employee} — {mp.date} — {mp.detail}
+                    </li>
+                  ))}
+                </ul>
+              )}
+              <Link
+                href="/attendance"
+                className="mt-2 inline-block text-xs font-medium text-primary underline"
+              >
+                Go to Attendance to resolve
+              </Link>
+            </div>
+          )}
           <DialogFooter>
             <Button variant="outline" onClick={() => setFinalizeOpen(false)}>
               Cancel

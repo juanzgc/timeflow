@@ -1,12 +1,13 @@
 import { NextResponse } from "next/server";
-import { eq } from "drizzle-orm";
+import { and, eq, gte, lte, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { payrollPeriods } from "@/drizzle/schema";
+import { payrollPeriods, dailyAttendance, employees } from "@/drizzle/schema";
 import { auth } from "@/auth";
 
 /**
  * POST /api/payroll/[periodId]/finalize
  * Locks the period — no more changes allowed after this.
+ * Blocks if missing punches exist in the period.
  *
  * Body: { status: "finalized" }
  */
@@ -53,6 +54,54 @@ export async function POST(
     );
   }
 
+  // Check for missing punches in the period date range
+  const missingPunches = await db
+    .select({
+      firstName: employees.firstName,
+      lastName: employees.lastName,
+      workDate: dailyAttendance.workDate,
+      clockIn: dailyAttendance.clockIn,
+    })
+    .from(dailyAttendance)
+    .innerJoin(employees, eq(dailyAttendance.employeeId, employees.id))
+    .where(
+      and(
+        eq(dailyAttendance.isMissingPunch, true),
+        gte(dailyAttendance.workDate, period.periodStart),
+        lte(dailyAttendance.workDate, period.periodEnd),
+      ),
+    );
+
+  if (missingPunches.length > 0) {
+    return NextResponse.json(
+      {
+        error: "Cannot finalize — missing punches must be resolved first",
+        missingPunches: missingPunches.map((mp) => ({
+          employee: `${mp.firstName} ${mp.lastName}`,
+          date: mp.workDate,
+          detail: mp.clockIn ? "No clock-out" : "No clock-in",
+        })),
+      },
+      { status: 422 },
+    );
+  }
+
+  // Check for employees without salary
+  const missingSalary = await db
+    .select({
+      firstName: employees.firstName,
+      lastName: employees.lastName,
+    })
+    .from(payrollPeriods)
+    .innerJoin(employees, eq(payrollPeriods.employeeId, employees.id))
+    .where(
+      and(
+        eq(payrollPeriods.periodStart, period.periodStart),
+        eq(payrollPeriods.periodEnd, period.periodEnd),
+        sql`${employees.monthlySalary} IS NULL`,
+      ),
+    );
+
   // Finalize all employee records in this period range
   const updated = await db
     .update(payrollPeriods)
@@ -60,7 +109,12 @@ export async function POST(
       status: "finalized",
       finalizedAt: new Date(),
     })
-    .where(eq(payrollPeriods.id, periodId))
+    .where(
+      and(
+        eq(payrollPeriods.periodStart, period.periodStart),
+        eq(payrollPeriods.periodEnd, period.periodEnd),
+      ),
+    )
     .returning({
       id: payrollPeriods.id,
       employeeId: payrollPeriods.employeeId,
@@ -71,5 +125,12 @@ export async function POST(
   return NextResponse.json({
     finalized: updated.length,
     records: updated,
+    warnings:
+      missingSalary.length > 0
+        ? missingSalary.map(
+            (e) =>
+              `${e.firstName} ${e.lastName} has no salary set. Costs are zero.`,
+          )
+        : undefined,
   });
 }

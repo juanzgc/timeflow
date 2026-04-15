@@ -5,6 +5,7 @@
 
 import { isHoliday as checkHoliday } from "@/lib/holidays";
 import { getDayOfWeek, formatDateISO } from "./time-utils";
+import { formatColombiaDateISO } from "@/lib/timezone";
 
 export interface SurchargeConfig {
   nocturnoRate: number; // always 0.35
@@ -21,10 +22,11 @@ export function getSurchargeConfig(date: Date): SurchargeConfig {
   const extraNocturnaRate = 1.75;
 
   // Festivo rate (Ley 2466 de 2025, gradual increase)
+  const dateISO = formatColombiaDateISO(date);
   let festivoRate: number;
-  if (date < new Date("2026-07-01")) {
+  if (dateISO < "2026-07-01") {
     festivoRate = 0.80;
-  } else if (date < new Date("2027-07-01")) {
+  } else if (dateISO < "2027-07-01") {
     festivoRate = 0.90;
   } else {
     festivoRate = 1.00;
@@ -32,7 +34,7 @@ export function getSurchargeConfig(date: Date): SurchargeConfig {
 
   // Monthly hours divisor (Ley 2101 de 2021, jornada reduction)
   let monthlyHoursDivisor: number;
-  if (date < new Date("2026-07-15")) {
+  if (dateISO < "2026-07-15") {
     monthlyHoursDivisor = 220; // 44h/week
   } else {
     monthlyHoursDivisor = 210; // 42h/week
@@ -53,7 +55,7 @@ export function getSurchargeConfig(date: Date): SurchargeConfig {
  * From July 15 2026: all days = 420min (7h).
  */
 export function getDailyLimitMins(dayOfWeek: number, date: Date): number {
-  if (date >= new Date("2026-07-15")) {
+  if (formatColombiaDateISO(date) >= "2026-07-15") {
     return 420; // 7h for all days after jornada reduction
   }
   // Before July 15, 2026
