@@ -55,7 +55,7 @@ pnpm db:seed       # Seed groups, admin user, and default settings
 - `src/app/api/` — API routes (auth, biotime sync)
 
 ### Auth
-NextAuth v5 with credentials provider and database sessions (`src/auth.ts`). Custom adapter in `src/lib/auth/adapter.ts` uses the `admin_users` and `sessions` tables directly. Instant revocation: setting `is_active=false` on a user causes session lookup to fail and delete the session. Route protection via `src/proxy.ts`.
+NextAuth v5 with credentials provider and JWT session strategy (`src/auth.ts`). Instant revocation: the `jwt` callback checks `is_active` on every token refresh — disabling a user in `admin_users` causes the next request to return an empty session. Route protection via `src/proxy.ts`.
 
 ### Database
 Local PostgreSQL runs via Docker Compose on **port 5433**. Connection string is in `.env.local` via `DATABASE_URL`. Schema defined in `src/drizzle/schema.ts` (12 tables). DB connection uses global singleton pattern in `src/lib/db.ts` to prevent pool exhaustion during dev hot reloads.
@@ -75,3 +75,33 @@ Signed ledger system — positive balance means company owes employee time off, 
 
 ### Employee Groups
 Kitchen, Servers, Bar, Admin — each group gets weekly schedule templates. Shifts support split shifts and midnight crossings.
+
+## Design System
+
+Reference file: `timeflow-design-system-v2.jsx`. All UI must follow these tokens.
+
+**Fonts:** Plus Jakarta Sans (body/heading, `--font-sans`) + JetBrains Mono (mono values, `--font-mono`). Configured via `next/font/google` in root layout.
+
+**Aesthetic:** Linear / Vercel / Raycast — cool-toned, shadow-driven depth, vibrant accents. Cards use `shadow-sm`/`shadow-md` for elevation rather than heavy borders.
+
+**Key color tokens (all in `globals.css`):**
+- Primary (teal-cyan): `#00b899` — buttons, active states, accent glow
+- Page bg: `#f5f5f7`, Card bg: `#ffffff`
+- Sidebar: dark panel (`#101014`) with teal accent bar on active items
+- Text: primary `#111118`, secondary `#555568`, tertiary `#9494a3`, quaternary `#bbbbc6`
+- Status: success `#00a86b`, warning `#e59500`, danger `#e5484d`, info `#3e93de`
+- Domain: nocturno `#7c5cbf`, festivo `#e5484d`, overtime `#e59500`
+- Groups: kitchen `#e87040`, servers `#00b899`, bar `#7c5cbf`, admin `#3e93de`
+
+**Typography patterns:**
+- Page headings: `text-[22px] font-extrabold tracking-[-0.04em]`
+- Card titles: `text-sm font-bold tracking-[-0.01em]`
+- KPI values: `text-[32px] font-extrabold tracking-[-0.04em]`
+- Labels/meta: `text-xs font-medium text-muted-foreground`
+- Mono values (times, hours): `font-mono font-medium`
+
+**Pill badges:** `rounded-full px-2.5 py-0.5 text-[11px] font-semibold` with status-colored bg/text/border (e.g. `bg-success-bg text-success-text`).
+
+**Shadows:** `shadow-sm` (cards), `shadow-md` (elevated/hover), `shadow-lg` (modals). All defined in `@theme` block.
+
+**Radius:** sm=6px, md=8px, lg=12px, xl=16px. Cards use `rounded-xl`.

@@ -4,11 +4,19 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/*
+ * TimeFlow Design System v2
+ * Source: timeflow-design-system-v2.jsx
+ * Fonts: Plus Jakarta Sans (body/heading) + JetBrains Mono (mono)
+ * Aesthetic: Linear / Vercel / Raycast — cool-toned, shadow-driven depth
+ */
+
 @theme inline {
+  /* ── Mapped shadcn tokens ─────────────────────────── */
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --font-sans: var(--font-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-mono: var(--font-mono);
   --font-heading: var(--font-sans);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
@@ -39,82 +47,165 @@
   --color-popover: var(--popover);
   --color-card-foreground: var(--card-foreground);
   --color-card: var(--card);
-  --radius-sm: calc(var(--radius) * 0.6);
-  --radius-md: calc(var(--radius) * 0.8);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) * 1.4);
-  --radius-2xl: calc(var(--radius) * 1.8);
-  --radius-3xl: calc(var(--radius) * 2.2);
-  --radius-4xl: calc(var(--radius) * 2.6);
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-2xl: 20px;
+  --radius-3xl: 24px;
+  --radius-4xl: 28px;
+
+  /* ── Status colors ────────────────────────────────── */
+  --color-success: var(--success);
+  --color-success-bg: var(--success-bg);
+  --color-success-text: var(--success-text);
+  --color-warning: var(--warning);
+  --color-warning-bg: var(--warning-bg);
+  --color-warning-text: var(--warning-text);
+  --color-danger: var(--danger);
+  --color-danger-bg: var(--danger-bg);
+  --color-danger-text: var(--danger-text);
+  --color-info: var(--info);
+  --color-info-bg: var(--info-bg);
+  --color-info-text: var(--info-text);
+
+  /* ── Domain colors ────────────────────────────────── */
+  --color-nocturno: var(--nocturno);
+  --color-nocturno-bg: var(--nocturno-bg);
+  --color-nocturno-text: var(--nocturno-text);
+  --color-festivo: var(--festivo);
+  --color-festivo-bg: var(--festivo-bg);
+  --color-overtime: var(--overtime);
+  --color-overtime-bg: var(--overtime-bg);
+
+  /* ── Group colors ─────────────────────────────────── */
+  --color-group-kitchen: var(--group-kitchen);
+  --color-group-servers: var(--group-servers);
+  --color-group-bar: var(--group-bar);
+  --color-group-admin: var(--group-admin);
+
+  /* ── Shadows ──────────────────────────────────────── */
+  --shadow-sm: 0 1px 3px rgba(0,0,0,0.04), 0 1px 2px rgba(0,0,0,0.06);
+  --shadow: 0 1px 3px rgba(0,0,0,0.04), 0 1px 2px rgba(0,0,0,0.06);
+  --shadow-md: 0 4px 12px rgba(0,0,0,0.06), 0 1px 3px rgba(0,0,0,0.04);
+  --shadow-lg: 0 8px 24px rgba(0,0,0,0.08), 0 2px 6px rgba(0,0,0,0.04);
 }
 
 :root {
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --radius: 0.625rem;
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+  /* ── Page surfaces ────────────────────────────────── */
+  --background: #f5f5f7;
+  --foreground: #111118;
+  --card: #ffffff;
+  --card-foreground: #111118;
+  --popover: #ffffff;
+  --popover-foreground: #111118;
+
+  /* ── Primary = accent teal-cyan ───────────────────── */
+  --primary: #00b899;
+  --primary-foreground: #ffffff;
+
+  /* ── Secondary ────────────────────────────────────── */
+  --secondary: #f5f5f7;
+  --secondary-foreground: #555568;
+
+  /* ── Muted ────────────────────────────────────────── */
+  --muted: #f5f5f7;
+  --muted-foreground: #9494a3;
+
+  /* ── Accent (used by shadcn for hover states) ────── */
+  --accent: #f5f5f7;
+  --accent-foreground: #111118;
+
+  /* ── Destructive ──────────────────────────────────── */
+  --destructive: #e5484d;
+
+  /* ── Borders & input ──────────────────────────────── */
+  --border: rgba(0,0,0,0.06);
+  --input: rgba(0,0,0,0.06);
+  --ring: #00b899;
+
+  /* ── Charts ───────────────────────────────────────── */
+  --chart-1: #00b899;
+  --chart-2: #3e93de;
+  --chart-3: #e59500;
+  --chart-4: #7c5cbf;
+  --chart-5: #e87040;
+
+  --radius: 8px;
+
+  /* ── Sidebar (dark panel) ─────────────────────────── */
+  --sidebar: #101014;
+  --sidebar-foreground: #ededef;
+  --sidebar-primary: #00b899;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #232329;
+  --sidebar-accent-foreground: #ededef;
+  --sidebar-border: #1e1e26;
+  --sidebar-ring: #00b899;
+
+  /* ── Status ───────────────────────────────────────── */
+  --success: #00a86b;
+  --success-bg: #edfcf5;
+  --success-text: #037a4b;
+  --warning: #e59500;
+  --warning-bg: #fef8ec;
+  --warning-text: #9e6500;
+  --danger: #e5484d;
+  --danger-bg: #fef0f1;
+  --danger-text: #c22d31;
+  --info: #3e93de;
+  --info-bg: #eef6fd;
+  --info-text: #1d6fb5;
+
+  /* ── Domain ───────────────────────────────────────── */
+  --nocturno: #7c5cbf;
+  --nocturno-bg: #f3f0fa;
+  --nocturno-text: #5b3d99;
+  --festivo: #e5484d;
+  --festivo-bg: #fef0f1;
+  --overtime: #e59500;
+  --overtime-bg: #fef8ec;
+
+  /* ── Groups ───────────────────────────────────────── */
+  --group-kitchen: #e87040;
+  --group-servers: #00b899;
+  --group-bar: #7c5cbf;
+  --group-admin: #3e93de;
 }
 
+/* Dark mode is not actively used but kept for completeness */
 .dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
+  --background: #101014;
+  --foreground: #ededef;
+  --card: #1c1c22;
+  --card-foreground: #ededef;
+  --popover: #1c1c22;
+  --popover-foreground: #ededef;
+  --primary: #00b899;
+  --primary-foreground: #ffffff;
+  --secondary: #232329;
+  --secondary-foreground: #ededef;
+  --muted: #232329;
+  --muted-foreground: #6e6e7a;
+  --accent: #232329;
+  --accent-foreground: #ededef;
+  --destructive: #e5484d;
+  --border: rgba(255,255,255,0.06);
+  --input: rgba(255,255,255,0.08);
+  --ring: #00b899;
+  --chart-1: #00b899;
+  --chart-2: #3e93de;
+  --chart-3: #e59500;
+  --chart-4: #7c5cbf;
+  --chart-5: #e87040;
+  --sidebar: #0c0c0f;
+  --sidebar-foreground: #ededef;
+  --sidebar-primary: #00b899;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #1c1c22;
+  --sidebar-accent-foreground: #ededef;
+  --sidebar-border: #1e1e26;
+  --sidebar-ring: #00b899;
 }
 
 @layer base {
@@ -127,4 +218,10 @@
   html {
     @apply font-sans;
   }
+
+  /* Scrollbar styling from design system */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.15); border-radius: 10px; }
+  ::-webkit-scrollbar-thumb:hover { background: rgba(0,0,0,0.25); }
 }
