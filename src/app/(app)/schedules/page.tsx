@@ -54,10 +54,10 @@ export default function SchedulesPage() {
       <div className="flex items-start justify-between">
         <div>
           <h1 className="text-[22px] font-extrabold tracking-[-0.04em]">
-            Schedules
+            Programación
           </h1>
           <p className="mt-0.5 text-[13px] text-muted-foreground">
-            Weekly schedule management by employee group.
+            Gestión semanal de horarios por grupo de empleados.
           </p>
         </div>
       </div>
@@ -66,13 +66,13 @@ export default function SchedulesPage() {
 
       {loading ? (
         <div className="flex h-48 items-center justify-center text-xs text-muted-foreground">
-          Loading...
+          Cargando...
         </div>
       ) : groups.length === 0 ? (
         <div className="flex h-48 flex-col items-center justify-center gap-2 rounded-xl border border-dashed text-muted-foreground">
           <CalendarDaysIcon className="size-8 opacity-30" />
           <p className="text-xs">
-            No groups found. Create groups and assign employees first.
+            No se encontraron grupos. Cree grupos y asigne empleados primero.
           </p>
         </div>
       ) : (

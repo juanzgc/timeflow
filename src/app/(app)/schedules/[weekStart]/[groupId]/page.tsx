@@ -54,7 +54,7 @@ type ModalState = {
 } | null;
 
 const MONTH_NAMES = [
-  "Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec",
+  "ene","feb","mar","abr","may","jun","jul","ago","sep","oct","nov","dic",
 ];
 
 export default function ScheduleEditorPage() {
@@ -89,7 +89,7 @@ export default function ScheduleEditorPage() {
     });
     const json = await res.json();
     if (res.status === 409 && json.id) return json.id;
-    if (!res.ok) throw new Error(json.error ?? "Failed to create schedule");
+    if (!res.ok) throw new Error(json.error ?? "Error al crear el horario");
     return json.id;
   };
 
@@ -246,7 +246,7 @@ export default function ScheduleEditorPage() {
   if (loading || !data) {
     return (
       <div className="flex h-64 items-center justify-center text-xs text-muted-foreground">
-        Loading schedule...
+        Cargando horario...
       </div>
     );
   }
@@ -302,13 +302,13 @@ export default function ScheduleEditorPage() {
             className="mb-2 inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
           >
             <ArrowLeftIcon className="size-3" />
-            Back to Schedules
+            Volver a horarios
           </Link>
           <h1 className="text-[22px] font-extrabold tracking-[-0.04em]">
-            {data.schedule?.groupName ?? "New"} Schedule
+            Horario {data.schedule?.groupName ?? "Nuevo"}
           </h1>
           <p className="mt-0.5 text-[13px] text-muted-foreground">
-            Week of {weekLabel}
+            Semana del {weekLabel}
           </p>
         </div>
         <ScheduleActions
@@ -339,14 +339,14 @@ export default function ScheduleEditorPage() {
           <span className="font-semibold text-foreground">
             {totalEmployees}
           </span>{" "}
-          employees
+          empleados
         </span>
         <span>
-          Avg{" "}
+          Prom{" "}
           <span className="font-mono font-semibold text-foreground">
             {minsToHoursDisplay(avgMins)}
           </span>
-          /week
+          /semana
         </span>
         <span>
           Total{" "}

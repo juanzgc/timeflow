@@ -8,6 +8,13 @@
       "when": 1776207281542,
       "tag": "0000_left_bruce_banner",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1776294014242,
+      "tag": "0001_short_mindworm",
+      "breakpoints": true
     }
   ]
 }

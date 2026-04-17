@@ -21,9 +21,29 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { PlusIcon, TrashIcon, EyeIcon } from "lucide-react";
+import { PlusIcon, TrashIcon, EyeIcon, AlertTriangleIcon, InfoIcon, ArrowRightIcon } from "lucide-react";
 import Link from "next/link";
 import { formatCOP, formatPeriodRange } from "@/lib/format";
+
+type AlertData = {
+  missingPunches: { employeeId: number; name: string; date?: string; detail: string }[];
+  activePeriod: { periodStart: string; periodEnd: string } | null;
+  missingSalary?: { employeeId: number; name: string }[];
+  missingSalaryCount?: number;
+  missingCedulaCount?: number;
+};
+
+type MissingPunch = {
+  employeeId: number;
+  name: string;
+  workDate: string;
+  detail: string;
+};
+
+type CreateError = {
+  error: string;
+  missingPunches?: MissingPunch[];
+} | null;
 
 type Period = {
   periodStart: string;
@@ -44,12 +64,20 @@ export default function PayrollPage() {
   const [creating, setCreating] = useState(false);
   const [deleteId, setDeleteId] = useState<number | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [alerts, setAlerts] = useState<AlertData | null>(null);
+  const [createError, setCreateError] = useState<CreateError>(null);
 
   const fetchPeriods = useCallback(async () => {
     setLoading(true);
-    const res = await fetch("/api/payroll");
-    if (res.ok) {
-      setPeriods(await res.json());
+    const [periodsRes, alertsRes] = await Promise.all([
+      fetch("/api/payroll"),
+      fetch("/api/dashboard/alerts"),
+    ]);
+    if (periodsRes.ok) {
+      setPeriods(await periodsRes.json());
+    }
+    if (alertsRes.ok) {
+      setAlerts(await alertsRes.json());
     }
     setLoading(false);
   }, []);
@@ -61,6 +89,7 @@ export default function PayrollPage() {
   const handleCreate = async () => {
     if (!newStart || !newEnd) return;
     setCreating(true);
+    setCreateError(null);
     try {
       const res = await fetch("/api/payroll", {
         method: "POST",
@@ -75,7 +104,11 @@ export default function PayrollPage() {
         setCreateOpen(false);
         setNewStart("");
         setNewEnd("");
+        setCreateError(null);
         fetchPeriods();
+      } else {
+        const data = await res.json();
+        setCreateError(data);
       }
     } finally {
       setCreating(false);
@@ -115,29 +148,28 @@ export default function PayrollPage() {
       <div className="flex items-start justify-between">
         <div>
           <h1 className="text-[22px] font-extrabold tracking-[-0.04em]">
-            Payroll
+            Nómina
           </h1>
           <p className="mt-0.5 text-[13px] text-muted-foreground">
-            Pay period summaries with surcharge breakdown and comp decisions.
+            Resumen de períodos de nómina con desglose de recargos y decisiones de compensatorio.
           </p>
         </div>
-        <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+        <Dialog open={createOpen} onOpenChange={(open) => { setCreateOpen(open); if (!open) setCreateError(null); }}>
           <DialogTrigger render={<Button size="sm" className="gap-1.5" />}>
             <PlusIcon className="size-4" />
-            Create Period
+            Crear período
           </DialogTrigger>
           <DialogContent className="sm:max-w-md">
             <DialogHeader>
-              <DialogTitle>Create Pay Period</DialogTitle>
+              <DialogTitle>Crear período de nómina</DialogTitle>
               <DialogDescription>
-                This will run the reconciler for all active employees in the date
-                range.
+                Esto ejecutará la conciliación para todos los empleados activos en el rango de fechas.
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-4 py-2">
               <div>
                 <label className="mb-1 block text-xs font-medium text-muted-foreground">
-                  Period Start
+                  Inicio del período
                 </label>
                 <Input
                   type="date"
@@ -148,7 +180,7 @@ export default function PayrollPage() {
               </div>
               <div>
                 <label className="mb-1 block text-xs font-medium text-muted-foreground">
-                  Period End
+                  Fin del período
                 </label>
                 <Input
                   type="date"
@@ -159,7 +191,7 @@ export default function PayrollPage() {
               </div>
               <div>
                 <label className="mb-1 block text-xs font-medium text-muted-foreground">
-                  Type
+                  Tipo
                 </label>
                 <div className="flex gap-3">
                   <label className="flex items-center gap-2 text-sm">
@@ -180,25 +212,141 @@ export default function PayrollPage() {
                       onChange={() => setNewStatus("test")}
                       className="accent-primary"
                     />
-                    Test
+                    Prueba
                   </label>
                 </div>
               </div>
             </div>
+            {createError && (
+              <div className="rounded-lg border border-danger/15 bg-danger-bg p-3">
+                <p className="text-[12.5px] font-bold text-danger-text">
+                  {createError.error}
+                </p>
+                {createError.missingPunches && createError.missingPunches.length > 0 && (
+                  <div className="mt-2 space-y-1.5">
+                    {createError.missingPunches.map((mp, i) => (
+                      <div
+                        key={`${mp.employeeId}-${mp.workDate}-${i}`}
+                        className="flex items-center justify-between border-t border-danger/10 pt-1.5"
+                      >
+                        <span className="text-[11.5px] text-danger-text">
+                          {mp.name} — {mp.workDate} — {mp.detail}
+                        </span>
+                        <Link
+                          href={`/employees/${mp.employeeId}?tab=attendance&date=${mp.workDate}&fix=${mp.detail === "no clock-in" ? "clock-in" : mp.detail === "no clock-out" ? "clock-out" : "both"}`}
+                        >
+                          <Button
+                            variant="outline"
+                            size="xs"
+                            className="border-danger/20 bg-white text-danger-text"
+                          >
+                            Corregir
+                          </Button>
+                        </Link>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
             <DialogFooter>
               <Button onClick={handleCreate} disabled={creating || !newStart || !newEnd}>
-                {creating ? "Creating..." : "Create"}
+                {creating ? "Creando..." : "Crear"}
               </Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
       </div>
 
+      {/* Alert Banners */}
+      {alerts && (alerts.missingSalaryCount ?? 0) > 0 && (
+        <div className="rounded-xl border border-warning/15 bg-warning-bg p-4">
+          <div className="flex items-center gap-2">
+            <AlertTriangleIcon className="size-4 text-warning-text" />
+            <span className="text-[13px] font-bold text-warning-text">
+              {alerts.missingSalaryCount} empleado{(alerts.missingSalaryCount ?? 0) !== 1 && "s"} sin salario
+            </span>
+            <span className="text-[11px] text-warning-text/70">
+              — no se pueden calcular costos
+            </span>
+            <Link href="/employees" className="ml-auto">
+              <Button variant="outline" size="xs" className="border-warning/20 bg-white text-warning-text">
+                Editar empleados <ArrowRightIcon className="ml-1 size-3" />
+              </Button>
+            </Link>
+          </div>
+        </div>
+      )}
+
+      {(() => {
+        if (!alerts?.activePeriod || alerts.missingPunches.length === 0) return null;
+        const { periodStart, periodEnd } = alerts.activePeriod;
+        const filtered = alerts.missingPunches.filter(
+          (mp) => mp.date && mp.date >= periodStart && mp.date <= periodEnd,
+        );
+        if (filtered.length === 0) return null;
+        return (
+          <div className="rounded-xl border border-warning/15 bg-warning-bg p-4">
+            <div className="mb-2 flex items-center gap-2">
+              <div className="flex size-6 items-center justify-center rounded-lg bg-warning/20">
+                <AlertTriangleIcon className="size-3.5 text-warning-text" />
+              </div>
+              <span className="text-[13px] font-bold text-warning-text">
+                {filtered.length} marcación{filtered.length !== 1 ? "es faltantes" : " faltante"} en el período actual
+              </span>
+              <span className="ml-auto rounded-full bg-warning/10 px-2 py-0.5 text-[11px] font-semibold text-warning-text">
+                {formatPeriodRange(periodStart, periodEnd)}
+              </span>
+            </div>
+            {filtered.map((mp, i) => (
+              <div
+                key={`${mp.employeeId}-${mp.date}-${i}`}
+                className="flex items-center justify-between border-t border-warning/15 py-2"
+              >
+                <span className="text-[12.5px] font-medium text-warning-text">
+                  {mp.name} — {mp.date} — {mp.detail}
+                </span>
+                <Link
+                  href={`/employees/${mp.employeeId}?tab=attendance&date=${mp.date}&fix=${mp.detail === "no clock-in" ? "clock-in" : mp.detail === "no clock-out" ? "clock-out" : "both"}`}
+                >
+                  <Button
+                    variant="outline"
+                    size="xs"
+                    className="border-warning/20 bg-white text-warning-text"
+                  >
+                    Corregir
+                  </Button>
+                </Link>
+              </div>
+            ))}
+          </div>
+        );
+      })()}
+
+      {alerts && (alerts.missingCedulaCount ?? 0) > 0 && (
+        <div className="rounded-xl border border-foreground/5 bg-secondary/50 p-4">
+          <div className="flex items-center gap-2">
+            <InfoIcon className="size-4 text-muted-foreground" />
+            <span className="text-[13px] font-medium text-muted-foreground">
+              {alerts.missingCedulaCount} empleado{(alerts.missingCedulaCount ?? 0) !== 1 && "s"} sin cédula
+            </span>
+            <span className="text-[11px] text-muted-foreground/70">
+              — La exportación Siigo será bloqueada
+            </span>
+            <Link href="/employees" className="ml-auto">
+              <Button variant="outline" size="xs" className="text-muted-foreground">
+                Editar <ArrowRightIcon className="ml-1 size-3" />
+              </Button>
+            </Link>
+          </div>
+        </div>
+      )}
+
       {/* Period List */}
       <Card>
         <CardHeader className="border-b px-5 py-3.5">
           <CardTitle className="text-sm font-bold tracking-[-0.01em]">
-            Pay Periods
+            Períodos de nómina
             <span className="ml-2 text-xs font-normal text-muted-foreground">
               ({periods.length})
             </span>
@@ -207,29 +355,29 @@ export default function PayrollPage() {
         <CardContent className="p-0">
           {loading ? (
             <div className="flex h-32 items-center justify-center text-xs text-muted-foreground">
-              Loading...
+              Cargando...
             </div>
           ) : periods.length === 0 ? (
             <div className="flex h-32 flex-col items-center justify-center gap-2 text-xs text-muted-foreground">
-              No pay periods created yet.
+              No hay períodos de nómina creados.
               <Button
                 variant="outline"
                 size="sm"
                 onClick={() => setCreateOpen(true)}
               >
-                Create Period
+                Crear período
               </Button>
             </div>
           ) : (
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Period</TableHead>
-                  <TableHead className="w-16">Days</TableHead>
-                  <TableHead className="w-24">Employees</TableHead>
-                  <TableHead className="w-24">Status</TableHead>
-                  <TableHead className="w-32">Total Surcharges</TableHead>
-                  <TableHead className="w-28">Actions</TableHead>
+                  <TableHead>Período</TableHead>
+                  <TableHead className="w-16">Días</TableHead>
+                  <TableHead className="w-24">Empleados</TableHead>
+                  <TableHead className="w-24">Estado</TableHead>
+                  <TableHead className="w-32">Total recargos</TableHead>
+                  <TableHead className="w-28">Acciones</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -284,11 +432,11 @@ export default function PayrollPage() {
                               </DialogTrigger>
                               <DialogContent>
                                 <DialogHeader>
-                                  <DialogTitle>Delete Period</DialogTitle>
+                                  <DialogTitle>Eliminar período</DialogTitle>
                                   <DialogDescription>
-                                    This will delete all payroll records for{" "}
+                                    Esto eliminará todos los registros de nómina de{" "}
                                     {formatPeriodRange(p.periodStart, p.periodEnd)}.
-                                    Comp transactions will be reversed.
+                                    Las transacciones compensatorias serán revertidas.
                                   </DialogDescription>
                                 </DialogHeader>
                                 <DialogFooter>
@@ -296,14 +444,14 @@ export default function PayrollPage() {
                                     variant="outline"
                                     onClick={() => setDeleteId(null)}
                                   >
-                                    Cancel
+                                    Cancelar
                                   </Button>
                                   <Button
                                     variant="destructive"
                                     onClick={() => handleDelete(p.firstId)}
                                     disabled={deleting}
                                   >
-                                    {deleting ? "Deleting..." : "Delete"}
+                                    {deleting ? "Eliminando..." : "Eliminar"}
                                   </Button>
                                 </DialogFooter>
                               </DialogContent>

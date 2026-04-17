@@ -3,7 +3,7 @@ import { and, eq, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { employees, groups, dailyAttendance } from "@/drizzle/schema";
 import { auth } from "@/auth";
-import { todayColombiaISO, colAddDays, formatColombiaDateISO } from "@/lib/timezone";
+import { todayColombiaISO, colAddDays, colHours, formatColombiaDateISO } from "@/lib/timezone";
 import { syncIfStale } from "@/lib/biotime/sync-if-stale";
 import { calculateAttendance } from "@/lib/engine/attendance-calculator";
 
@@ -70,7 +70,9 @@ export async function GET() {
   const present = rows.filter((r) => r.clockIn !== null).length;
   const onTime = rows.filter((r) => r.clockIn !== null && (r.lateMinutes ?? 0) === 0).length;
   const late = rows.filter((r) => (r.lateMinutes ?? 0) > 0).length;
-  const missingPunch = rows.filter((r) => r.isMissingPunch).length;
+  // Don't count missing punches for today — the business day isn't over
+  // until 6 AM the next day. Before 6 AM, yesterday is also still open.
+  const missingPunch = 0;
 
   // Calculate last week same day for trends
   const lastWeekDate = colAddDays(today, -7);

@@ -19,6 +19,7 @@ import { db } from "@/lib/db";
 import {
   employees,
   punchLogs,
+  punchCorrections,
   shifts,
   weeklySchedules,
   dailyAttendance,
@@ -140,7 +141,27 @@ async function calculateForEmployee(
     allShifts.push(...fetched);
   }
 
-  // A4. Build lookup maps
+  // A4. Fetch punch corrections for manual flag detection
+  const corrections = await db
+    .select()
+    .from(punchCorrections)
+    .where(
+      and(
+        eq(punchCorrections.employeeId, emp.id),
+        gte(punchCorrections.workDate, startDate),
+        lte(punchCorrections.workDate, endDate),
+      ),
+    );
+
+  const correctionsByDate = new Map<string, { isClockInManual: boolean; isClockOutManual: boolean }>();
+  for (const c of corrections) {
+    const existing = correctionsByDate.get(c.workDate) ?? { isClockInManual: false, isClockOutManual: false };
+    if (c.action === "edit_in" || c.action === "add_in") existing.isClockInManual = true;
+    if (c.action === "edit_out" || c.action === "add_out") existing.isClockOutManual = true;
+    correctionsByDate.set(c.workDate, existing);
+  }
+
+  // A5. Build lookup maps
   const scheduleByWeekStart = new Map(
     schedules.map((s) => [s.weekStart, s]),
   );
@@ -407,8 +428,8 @@ async function calculateForEmployee(
         clockOut: res.clockOut,
         effectiveIn: norm.effectiveIn,
         effectiveOut: norm.effectiveOut,
-        isClockInManual: false,
-        isClockOutManual: false,
+        isClockInManual: correctionsByDate.get(dateStr)?.isClockInManual ?? false,
+        isClockOutManual: correctionsByDate.get(dateStr)?.isClockOutManual ?? false,
         isMissingPunch: false,
         scheduledStart: primaryShift.shiftStart,
         scheduledEnd: lastShift.shiftEnd,
@@ -437,6 +458,8 @@ async function calculateForEmployee(
           clockOut: res.clockOut,
           effectiveIn: norm.effectiveIn,
           effectiveOut: norm.effectiveOut,
+          isClockInManual: correctionsByDate.get(dateStr)?.isClockInManual ?? false,
+          isClockOutManual: correctionsByDate.get(dateStr)?.isClockOutManual ?? false,
           isMissingPunch: false,
           scheduledStart: primaryShift.shiftStart,
           scheduledEnd: lastShift.shiftEnd,
@@ -584,7 +607,13 @@ async function upsertAbsentRecord(
         clockOut: null,
         effectiveIn: null,
         effectiveOut: null,
+        isClockInManual: false,
+        isClockOutManual: false,
         isMissingPunch: false,
+        crossesMidnight: false,
+        isSplitShift: false,
+        dayType: "regular",
+        dailyLimitMins: 0,
         lateMinutes: 0,
         earlyLeaveMins: 0,
         minsOrdinaryDay: 0,

@@ -32,10 +32,16 @@ export function formatCOP(amount: number): string {
   }).format(amount);
 }
 
-/** Format a Date or ISO string as "Monday, April 14, 2026". */
+/** Parse a date-only ("2026-04-16") or full timestamp string into a Date. */
+function parseDate(d: string): Date {
+  // If it already contains "T", it's a full timestamp — parse directly.
+  return new Date(d.includes("T") ? d : d + "T12:00:00");
+}
+
+/** Format a Date or ISO string as "lunes, 14 de abril de 2026". */
 export function formatDateFull(d: Date | string): string {
-  const date = typeof d === "string" ? new Date(d + "T12:00:00") : d;
-  return date.toLocaleDateString("en-US", {
+  const date = typeof d === "string" ? parseDate(d) : d;
+  return date.toLocaleDateString("es-CO", {
     weekday: "long",
     year: "numeric",
     month: "long",
@@ -44,10 +50,10 @@ export function formatDateFull(d: Date | string): string {
   });
 }
 
-/** Format as "Apr 14, 2026". */
+/** Format as "14 abr 2026". */
 export function formatDateMedium(d: Date | string): string {
-  const date = typeof d === "string" ? new Date(d + "T12:00:00") : d;
-  return date.toLocaleDateString("en-US", {
+  const date = typeof d === "string" ? parseDate(d) : d;
+  return date.toLocaleDateString("es-CO", {
     year: "numeric",
     month: "short",
     day: "numeric",
@@ -55,10 +61,23 @@ export function formatDateMedium(d: Date | string): string {
   });
 }
 
-/** Format as "Apr 14". */
+/** Format as "14 abr". */
 export function formatDateShort(d: Date | string): string {
-  const date = typeof d === "string" ? new Date(d + "T12:00:00") : d;
-  return date.toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: COL_TZ });
+  const date = typeof d === "string" ? parseDate(d) : d;
+  return date.toLocaleDateString("es-CO", { month: "short", day: "numeric", timeZone: COL_TZ });
+}
+
+/** Format a timestamp as "2:30:15 p.m.". Includes seconds. */
+export function formatTimestamp(ts: Date | string | null): string {
+  if (!ts) return "—";
+  const date = typeof ts === "string" ? parseDate(ts) : ts;
+  return date.toLocaleTimeString("es-CO", {
+    hour: "numeric",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: true,
+    timeZone: COL_TZ,
+  });
 }
 
 /** Format period range as "Mar 28 – Apr 12, 2026". */
@@ -66,11 +85,11 @@ export function formatPeriodRange(start: string, end: string): string {
   return `${formatDateShort(start)} – ${formatDateMedium(end)}`;
 }
 
-/** Format a timestamp as "8:00 AM" or "5:12 PM". */
+/** Format a timestamp as "8:00 a.m." or "5:12 p.m.". */
 export function formatTime(ts: Date | string | null): string {
   if (!ts) return "—";
   const date = typeof ts === "string" ? new Date(ts) : ts;
-  return date.toLocaleTimeString("en-US", {
+  return date.toLocaleTimeString("es-CO", {
     hour: "numeric",
     minute: "2-digit",
     hour12: true,
@@ -80,8 +99,8 @@ export function formatTime(ts: Date | string | null): string {
 
 /** Get day name from ISO date string. */
 export function getDayName(d: string): string {
-  const date = new Date(d + "T12:00:00");
-  return date.toLocaleDateString("en-US", { weekday: "short", timeZone: COL_TZ });
+  const date = parseDate(d);
+  return date.toLocaleDateString("es-CO", { weekday: "short", timeZone: COL_TZ });
 }
 
 /** Get YYYY-MM-DD string for today in Colombia timezone. */

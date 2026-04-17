@@ -154,12 +154,12 @@ export default function DashboardPage() {
       <div className="flex items-start justify-between">
         <div>
           <h1 className="text-[22px] font-extrabold tracking-[-0.04em]">
-            Dashboard
+            Panel
           </h1>
           <p className="mt-0.5 text-[13px] text-muted-foreground">
             {dateStr ? formatDateFull(dateStr) : "Loading..."}
             {alerts?.activePeriod &&
-              ` — Period: ${formatPeriodRange(alerts.activePeriod.periodStart, alerts.activePeriod.periodEnd)}`}
+              ` — Período: ${formatPeriodRange(alerts.activePeriod.periodStart, alerts.activePeriod.periodEnd)}`}
           </p>
         </div>
         <Button
@@ -170,7 +170,7 @@ export default function DashboardPage() {
           className="gap-1.5"
         >
           <RefreshCwIcon className={`size-3.5 ${syncing ? "animate-spin" : ""}`} />
-          Sync now
+          Sincronizar
         </Button>
       </div>
 
@@ -178,30 +178,30 @@ export default function DashboardPage() {
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         {[
           {
-            label: "Present Today",
+            label: "Presentes hoy",
             value: kpis ? String(kpis.present) : "--",
-            sub: `of ${kpis?.totalEmployees ?? "--"} employees`,
+            sub: `de ${kpis?.totalEmployees ?? "--"} empleados`,
             trend: kpis?.trends.present ?? 0,
             accent: "var(--primary)",
           },
           {
-            label: "On Time",
+            label: "A tiempo",
             value: kpis ? `${kpis.onTimePercent}%` : "--%",
-            sub: `${kpis?.onTime ?? "--"} employees`,
+            sub: `${kpis?.onTime ?? "--"} empleados`,
             trend: kpis?.trends.onTimePercent ?? 0,
             accent: "var(--success)",
           },
           {
-            label: "Late Arrivals",
+            label: "Llegadas tarde",
             value: kpis ? String(kpis.late) : "--",
-            sub: "today",
+            sub: "hoy",
             trend: kpis ? -kpis.trends.late : 0, // negative trend is good for late
             accent: "var(--warning)",
           },
           {
-            label: "Missing Punches",
+            label: "Marcaciones faltantes",
             value: kpis ? String(kpis.missingPunch) : "--",
-            sub: "need attention",
+            sub: "requieren atención",
             trend: 0,
             accent: "var(--nocturno)",
           },
@@ -253,7 +253,7 @@ export default function DashboardPage() {
               <AlertTriangleIcon className="size-3.5 text-warning-text" />
             </div>
             <span className="text-[13px] font-bold text-warning-text">
-              Missing Punches
+              Marcaciones faltantes
             </span>
             <span className="ml-auto rounded-full bg-warning/10 px-2 py-0.5 text-[11px] font-semibold text-warning-text">
               {alerts.missingPunches.length}
@@ -267,13 +267,15 @@ export default function DashboardPage() {
               <span className="text-[12.5px] font-medium text-warning-text">
                 {mp.name} — {mp.detail}
               </span>
-              <Link href="/attendance">
+              <Link
+                href={`/employees/${mp.employeeId}?tab=attendance&date=${mp.date}&fix=${mp.detail === "no clock-in" ? "clock-in" : mp.detail === "no clock-out" ? "clock-out" : "both"}`}
+              >
                 <Button
                   variant="outline"
                   size="xs"
                   className="border-warning/20 bg-white text-warning-text"
                 >
-                  Fix
+                  Corregir
                 </Button>
               </Link>
             </div>
@@ -286,16 +288,16 @@ export default function DashboardPage() {
           <div className="flex items-center gap-2">
             <AlertTriangleIcon className="size-4 text-danger-text" />
             <span className="text-[13px] font-bold text-danger-text">
-              Period{" "}
+              Período{" "}
               {formatPeriodRange(
                 alerts.overduePeriods[0].periodStart,
                 alerts.overduePeriods[0].periodEnd,
               )}{" "}
-              has ended and is not finalized.
+              ha terminado y no está finalizado.
             </span>
             <Link href="/payroll" className="ml-auto">
               <Button variant="outline" size="xs" className="border-danger/20 bg-white text-danger-text">
-                Go to Payroll <ArrowRightIcon className="ml-1 size-3" />
+                Ir a Nómina <ArrowRightIcon className="ml-1 size-3" />
               </Button>
             </Link>
           </div>
@@ -307,11 +309,11 @@ export default function DashboardPage() {
           <div className="flex items-center gap-2">
             <InfoIcon className="size-4 text-info-text" />
             <span className="text-[13px] font-bold text-info-text">
-              No active pay period.
+              No hay período de nómina activo.
             </span>
             <Link href="/payroll" className="ml-auto">
               <Button variant="outline" size="xs" className="border-info/20 bg-white text-info-text">
-                Create Period <ArrowRightIcon className="ml-1 size-3" />
+                Crear período <ArrowRightIcon className="ml-1 size-3" />
               </Button>
             </Link>
           </div>
@@ -323,14 +325,14 @@ export default function DashboardPage() {
           <div className="flex items-center gap-2">
             <AlertTriangleIcon className="size-4 text-warning-text" />
             <span className="text-[13px] font-bold text-warning-text">
-              {alerts.missingSalaryCount} employee{(alerts.missingSalaryCount ?? 0) !== 1 && "s"} missing salary
+              {alerts.missingSalaryCount} {(alerts.missingSalaryCount ?? 0) !== 1 ? "empleados" : "empleado"} sin salario
             </span>
             <span className="text-[11px] text-warning-text/70">
-              — costs cannot be calculated
+              — no se pueden calcular costos
             </span>
             <Link href="/employees" className="ml-auto">
               <Button variant="outline" size="xs" className="border-warning/20 bg-white text-warning-text">
-                Edit Employees <ArrowRightIcon className="ml-1 size-3" />
+                Editar empleados <ArrowRightIcon className="ml-1 size-3" />
               </Button>
             </Link>
           </div>
@@ -342,14 +344,14 @@ export default function DashboardPage() {
           <div className="flex items-center gap-2">
             <InfoIcon className="size-4 text-muted-foreground" />
             <span className="text-[13px] font-medium text-muted-foreground">
-              {alerts.missingCedulaCount} employee{(alerts.missingCedulaCount ?? 0) !== 1 && "s"} missing cédula
+              {alerts.missingCedulaCount} {(alerts.missingCedulaCount ?? 0) !== 1 ? "empleados" : "empleado"} sin cédula
             </span>
             <span className="text-[11px] text-muted-foreground/70">
-              — Siigo export will be blocked
+              — La exportación Siigo será bloqueada
             </span>
             <Link href="/employees" className="ml-auto">
               <Button variant="outline" size="xs" className="text-muted-foreground">
-                Edit <ArrowRightIcon className="ml-1 size-3" />
+                Editar <ArrowRightIcon className="ml-1 size-3" />
               </Button>
             </Link>
           </div>
@@ -361,10 +363,10 @@ export default function DashboardPage() {
           <div className="flex items-center gap-2">
             <AlertTriangleIcon className="size-4 text-warning-text" />
             <span className="text-[13px] font-bold text-warning-text">
-              BioTime sync is stale
+              Sincronización BioTime desactualizada
             </span>
             <span className="text-[11px] text-warning-text/70">
-              — last synced {alerts.lastSyncTime ? new Date(alerts.lastSyncTime).toLocaleTimeString("en-US", { timeZone: COL_TZ }) : "never"}
+              — última sincronización {alerts.lastSyncTime ? new Date(alerts.lastSyncTime).toLocaleTimeString("es-CO", { timeZone: COL_TZ }) : "nunca"}
             </span>
             <Button
               variant="outline"
@@ -373,7 +375,7 @@ export default function DashboardPage() {
               onClick={handleSync}
               disabled={syncing}
             >
-              Sync Now
+              Sincronizar
             </Button>
           </div>
         </div>
@@ -389,7 +391,7 @@ export default function DashboardPage() {
               : "text-muted-foreground hover:text-foreground"
           }`}
         >
-          All
+          Todos
         </button>
         {groups.map((g) => (
           <button
@@ -419,9 +421,9 @@ export default function DashboardPage() {
       <Card>
         <CardHeader className="border-b px-5 py-3.5">
           <CardTitle className="flex items-center justify-between text-sm font-bold tracking-[-0.01em]">
-            Today&apos;s Attendance
+            Marcaciones de hoy
             <span className="flex items-center gap-2 text-xs font-normal text-muted-foreground">
-              {kpis ? `${kpis.present}/${kpis.totalEmployees} present` : ""}
+              {kpis ? `${kpis.present}/${kpis.totalEmployees} presentes` : ""}
               {kpis && kpis.totalEmployees > 0 && (
                 <div className="h-1 w-14 overflow-hidden rounded-full bg-secondary">
                   <div
@@ -438,20 +440,20 @@ export default function DashboardPage() {
         <CardContent className="p-0">
           {filtered.length === 0 ? (
             <div className="flex h-32 items-center justify-center text-xs text-muted-foreground">
-              No attendance data for today
+              Sin datos de marcación para hoy
             </div>
           ) : (
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Employee</TableHead>
-                  <TableHead className="w-24">Group</TableHead>
-                  <TableHead className="w-24">Clock In</TableHead>
-                  <TableHead className="w-24">Clock Out</TableHead>
-                  <TableHead className="w-20">Worked</TableHead>
-                  <TableHead className="w-20">Late</TableHead>
-                  <TableHead className="w-20">Excess</TableHead>
-                  <TableHead className="w-24">Status</TableHead>
+                  <TableHead>Empleado</TableHead>
+                  <TableHead className="w-24">Grupo</TableHead>
+                  <TableHead className="w-24">Entrada</TableHead>
+                  <TableHead className="w-24">Salida</TableHead>
+                  <TableHead className="w-20">Trabajado</TableHead>
+                  <TableHead className="w-20">Tardanza</TableHead>
+                  <TableHead className="w-20">Exceso</TableHead>
+                  <TableHead className="w-24">Estado</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -566,7 +568,7 @@ export default function DashboardPage() {
         <Card>
           <CardHeader className="border-b px-5 py-3.5">
             <CardTitle className="flex items-center justify-between text-sm font-bold tracking-[-0.01em]">
-              Period Hours
+              Horas del período
               {periodData?.period && (
                 <span className="rounded-full bg-primary/10 px-2.5 py-0.5 text-[11px] font-semibold text-primary">
                   {formatPeriodRange(
@@ -580,11 +582,11 @@ export default function DashboardPage() {
           <CardContent className="p-5">
             {!periodData?.period ? (
               <div className="flex h-20 items-center justify-center text-xs text-muted-foreground">
-                No active period
+                Sin período activo
               </div>
             ) : periodData.employees.length === 0 ? (
               <div className="flex h-20 items-center justify-center text-xs text-muted-foreground">
-                No employee data
+                Sin datos de empleados
               </div>
             ) : (
               <div className="space-y-3">
@@ -633,7 +635,7 @@ export default function DashboardPage() {
                   href="/payroll"
                   className="mt-2 inline-flex items-center text-xs font-semibold text-primary hover:underline"
                 >
-                  View Payroll <ArrowRightIcon className="ml-1 size-3" />
+                  Ver nómina <ArrowRightIcon className="ml-1 size-3" />
                 </Link>
               </div>
             )}
@@ -644,13 +646,13 @@ export default function DashboardPage() {
         <Card>
           <CardHeader className="border-b px-5 py-3.5">
             <CardTitle className="text-sm font-bold tracking-[-0.01em]">
-              Comp Time Balances
+              Saldos de tiempo compensatorio
             </CardTitle>
           </CardHeader>
           <CardContent className="p-5">
             {compBalances.length === 0 ? (
               <div className="flex h-20 items-center justify-center text-xs text-muted-foreground">
-                No comp balance data
+                Sin datos de compensatorio
               </div>
             ) : (
               <div className="space-y-0">
@@ -707,23 +709,23 @@ function StatusBadge({ status }: { status: string | null }) {
       color: "var(--success-text)",
       bg: "var(--success-bg)",
       icon: <CheckIcon className="size-3" />,
-      label: "On time",
+      label: "A tiempo",
     },
     late: {
       color: "var(--warning-text)",
       bg: "var(--warning-bg)",
       icon: <AlertTriangleIcon className="size-3" />,
-      label: "Late",
+      label: "Tarde",
     },
     absent: {
       color: "var(--danger-text)",
       bg: "var(--danger-bg)",
-      label: "Absent",
+      label: "Ausente",
     },
     "day-off": {
       color: "var(--muted-foreground)",
       bg: "var(--secondary)",
-      label: "Day off",
+      label: "Descanso",
     },
     "comp-day-off": {
       color: "var(--info-text)",

@@ -14,8 +14,8 @@ async function seed() {
   await db
     .insert(groups)
     .values([
-      { name: "Kitchen" },
-      { name: "Servers" },
+      { name: "Cocina" },
+      { name: "Asesores" },
       { name: "Bar" },
       { name: "Admin" },
     ])

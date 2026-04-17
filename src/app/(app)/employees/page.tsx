@@ -19,9 +19,10 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
-import { UsersIcon, CheckIcon, XIcon, PencilIcon } from "lucide-react";
+import { UsersIcon, CheckIcon, XIcon, PencilIcon, ChevronRightIcon } from "lucide-react";
+import Link from "next/link";
 
-const DAY_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+const DAY_LABELS = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
 
 type Group = { id: number; name: string; createdAt: string };
 
@@ -128,10 +129,10 @@ export default function EmployeesPage() {
     <div className="space-y-5">
       <div>
         <h1 className="text-[22px] font-extrabold tracking-[-0.04em]">
-          Employees
+          Empleados
         </h1>
         <p className="mt-0.5 text-[13px] text-muted-foreground">
-          Employee directory synced from BioTime with group assignments.
+          Directorio de empleados sincronizado desde BioTime con asignación de grupos.
         </p>
       </div>
 
@@ -147,7 +148,7 @@ export default function EmployeesPage() {
           />
           <CardHeader className="pb-2">
             <CardTitle className="text-xs font-medium text-muted-foreground">
-              Total Employees
+              Total empleados
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -155,7 +156,7 @@ export default function EmployeesPage() {
               {loading ? "--" : employees.length}
             </div>
             <p className="text-xs text-muted-foreground/70">
-              synced from BioTime
+              sincronizados desde BioTime
             </p>
           </CardContent>
         </Card>
@@ -169,7 +170,7 @@ export default function EmployeesPage() {
           />
           <CardHeader className="pb-2">
             <CardTitle className="text-xs font-medium text-muted-foreground">
-              Active
+              Activos
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -177,7 +178,7 @@ export default function EmployeesPage() {
               {loading ? "--" : activeCount}
             </div>
             <p className="text-xs text-muted-foreground/70">
-              currently active
+              activos actualmente
             </p>
           </CardContent>
         </Card>
@@ -191,7 +192,7 @@ export default function EmployeesPage() {
           />
           <CardHeader className="pb-2">
             <CardTitle className="text-xs font-medium text-muted-foreground">
-              Unassigned
+              Sin asignar
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -199,7 +200,7 @@ export default function EmployeesPage() {
               {loading ? "--" : unassignedCount}
             </div>
             <p className="text-xs text-muted-foreground/70">
-              no group assigned
+              sin grupo asignado
             </p>
           </CardContent>
         </Card>
@@ -208,7 +209,7 @@ export default function EmployeesPage() {
       {/* Group filter tabs */}
       <div className="flex items-center gap-1.5 overflow-x-auto">
         <FilterTab
-          label="All"
+          label="Todos"
           count={employees.length}
           active={activeGroup === "all"}
           onClick={() => setActiveGroup("all")}
@@ -224,7 +225,7 @@ export default function EmployeesPage() {
           />
         ))}
         <FilterTab
-          label="Unassigned"
+          label="Sin asignar"
           count={unassignedCount}
           active={activeGroup === "unassigned"}
           onClick={() => setActiveGroup("unassigned")}
@@ -237,11 +238,11 @@ export default function EmployeesPage() {
           <CardTitle className="flex items-center gap-2 text-sm font-bold tracking-[-0.01em]">
             <UsersIcon className="size-4" />
             {activeGroup === "all"
-              ? "All Employees"
+              ? "Todos los empleados"
               : activeGroup === "unassigned"
-                ? "Unassigned Employees"
+                ? "Empleados sin asignar"
                 : groups.find((g) => String(g.id) === activeGroup)?.name ??
-                  "Employees"}
+                  "Empleados"}
             <span className="ml-1 text-xs font-normal text-muted-foreground">
               ({filtered.length})
             </span>
@@ -250,23 +251,24 @@ export default function EmployeesPage() {
         <CardContent className="p-0">
           {loading ? (
             <div className="flex h-32 items-center justify-center text-xs text-muted-foreground">
-              Loading...
+              Cargando...
             </div>
           ) : filtered.length === 0 ? (
             <div className="flex h-32 items-center justify-center text-xs text-muted-foreground">
-              No employees found
+              No se encontraron empleados
             </div>
           ) : (
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-16">Code</TableHead>
-                  <TableHead>Name</TableHead>
-                  <TableHead className="w-28">Cedula</TableHead>
-                  <TableHead className="w-32">Group</TableHead>
-                  <TableHead className="w-32">Salary</TableHead>
-                  <TableHead className="w-28">Rest Day</TableHead>
-                  <TableHead className="w-20">Status</TableHead>
+                  <TableHead className="w-16">Código</TableHead>
+                  <TableHead>Nombre</TableHead>
+                  <TableHead className="w-28">Cédula</TableHead>
+                  <TableHead className="w-32">Grupo</TableHead>
+                  <TableHead className="w-32">Salario</TableHead>
+                  <TableHead className="w-28">Día de descanso</TableHead>
+                  <TableHead className="w-20">Estado</TableHead>
+                  <TableHead className="w-10"></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -276,7 +278,12 @@ export default function EmployeesPage() {
                       {emp.empCode}
                     </TableCell>
                     <TableCell className="font-medium">
-                      {emp.firstName} {emp.lastName}
+                      <Link
+                        href={`/employees/${emp.id}`}
+                        className="hover:text-primary hover:underline"
+                      >
+                        {emp.firstName} {emp.lastName}
+                      </Link>
                     </TableCell>
 
                     {/* Cedula — inline editable */}
@@ -335,7 +342,7 @@ export default function EmployeesPage() {
                               <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
-                              <SelectItem value="null">Unassigned</SelectItem>
+                              <SelectItem value="null">Sin asignar</SelectItem>
                               {groups.map((g) => (
                                 <SelectItem key={g.id} value={String(g.id)}>
                                   {g.name}
@@ -380,7 +387,7 @@ export default function EmployeesPage() {
                             </Badge>
                           ) : (
                             <span className="text-xs text-muted-foreground">
-                              Unassigned
+                              Sin asignar
                             </span>
                           )}
                           <PencilIcon className="size-3 opacity-0 group-hover:opacity-60" />
@@ -501,8 +508,16 @@ export default function EmployeesPage() {
                               }
                         }
                       >
-                        {emp.isActive ? "Active" : "Inactive"}
+                        {emp.isActive ? "Activo" : "Inactivo"}
                       </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <Link
+                        href={`/employees/${emp.id}`}
+                        className="text-muted-foreground hover:text-foreground"
+                      >
+                        <ChevronRightIcon className="size-4" />
+                      </Link>
                     </TableCell>
                   </TableRow>
                 ))}

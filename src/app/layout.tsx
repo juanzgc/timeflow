@@ -14,7 +14,7 @@ const jetbrains = JetBrains_Mono({
 
 export const metadata: Metadata = {
   title: "TimeFlow",
-  description: "Attendance & payroll dashboard",
+  description: "Panel de marcaciones y nómina",
 };
 
 export default function RootLayout({
@@ -24,7 +24,7 @@ export default function RootLayout({
 }>) {
   return (
     <html
-      lang="en"
+      lang="es-CO"
       className={`${jakarta.variable} ${jetbrains.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">{children}</body>

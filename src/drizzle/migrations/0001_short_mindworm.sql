@@ -1,0 +1,1 @@
+ALTER TABLE "punch_corrections" ALTER COLUMN "new_value" DROP NOT NULL;

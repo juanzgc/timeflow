@@ -98,6 +98,54 @@ export async function POST(request: Request) {
     .from(employees)
     .where(eq(employees.isActive, true));
 
+  // Check for missing punches within the period range
+  const missingPunchRows = await db
+    .select({
+      employeeId: dailyAttendance.employeeId,
+      firstName: employees.firstName,
+      lastName: employees.lastName,
+      workDate: dailyAttendance.workDate,
+      clockIn: dailyAttendance.clockIn,
+      clockOut: dailyAttendance.clockOut,
+    })
+    .from(dailyAttendance)
+    .innerJoin(employees, eq(dailyAttendance.employeeId, employees.id))
+    .where(
+      and(
+        eq(dailyAttendance.isMissingPunch, true),
+        gte(dailyAttendance.workDate, periodStart),
+        lte(dailyAttendance.workDate, periodEnd),
+        eq(employees.isActive, true),
+      ),
+    );
+
+  if (missingPunchRows.length > 0) {
+    return NextResponse.json(
+      {
+        error: `Cannot create payroll: ${missingPunchRows.length} missing punch${missingPunchRows.length !== 1 ? "es" : ""} found`,
+        missingPunches: missingPunchRows.map((mp) => ({
+          employeeId: mp.employeeId,
+          name: `${mp.firstName} ${mp.lastName}`,
+          workDate: mp.workDate,
+          detail: !mp.clockIn
+            ? "no clock-in"
+            : !mp.clockOut
+              ? "no clock-out"
+              : "missing punch",
+        })),
+      },
+      { status: 400 },
+    );
+  }
+
+  // Collect employees missing salary for warnings
+  const skippedEmployees = allEmployees
+    .filter((emp) => !emp.monthlySalary)
+    .map((emp) => ({
+      employeeId: emp.id,
+      name: `${emp.firstName} ${emp.lastName}`,
+    }));
+
   const results = [];
 
   for (const emp of allEmployees) {
@@ -266,5 +314,13 @@ export async function POST(request: Request) {
     });
   }
 
-  return NextResponse.json({ employees: results });
+  return NextResponse.json({
+    employees: results,
+    ...(skippedEmployees.length > 0 && {
+      warnings: {
+        missingSalary: skippedEmployees,
+        message: `${skippedEmployees.length} employee${skippedEmployees.length !== 1 ? "s" : ""} skipped (no salary data)`,
+      },
+    }),
+  });
 }

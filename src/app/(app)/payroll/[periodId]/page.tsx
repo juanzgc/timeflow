@@ -249,7 +249,7 @@ export default function PeriodDetailPage() {
   if (loading) {
     return (
       <div className="flex h-64 items-center justify-center text-xs text-muted-foreground">
-        Loading period...
+        Cargando período...
       </div>
     );
   }
@@ -262,17 +262,17 @@ export default function PeriodDetailPage() {
         className="inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground"
       >
         <ArrowLeftIcon className="size-3.5" />
-        Back to Payroll
+        Volver a nómina
       </Link>
 
       {/* Header */}
       <div className="flex items-start justify-between">
         <div>
           <h1 className="text-[22px] font-extrabold tracking-[-0.04em]">
-            Period: {formatPeriodRange(periodStart, periodEnd)}
+            Período: {formatPeriodRange(periodStart, periodEnd)}
           </h1>
           <p className="mt-0.5 text-[13px] text-muted-foreground">
-            {records.length} employees
+            {records.length} empleados
             <span
               className="ml-2 inline-block rounded-full px-2.5 py-0.5 text-[11px] font-semibold capitalize"
               style={{
@@ -303,7 +303,7 @@ export default function PeriodDetailPage() {
                 <RefreshCwIcon
                   className={`size-3.5 ${recalculating ? "animate-spin" : ""}`}
                 />
-                Recalculate
+                Recalcular
               </Button>
               <Button
                 variant="outline"
@@ -311,7 +311,7 @@ export default function PeriodDetailPage() {
                 onClick={saveDecisions}
                 disabled={saving}
               >
-                {saving ? "Saving..." : "Save Decisions"}
+                {saving ? "Guardando..." : "Guardar decisiones"}
               </Button>
               <Button
                 variant="outline"
@@ -322,7 +322,7 @@ export default function PeriodDetailPage() {
                 className="gap-1.5"
               >
                 <FileSpreadsheetIcon className="size-3.5" />
-                Summary
+                Resumen
               </Button>
               <Button
                 size="sm"
@@ -330,7 +330,7 @@ export default function PeriodDetailPage() {
                 className="gap-1.5"
               >
                 <LockIcon className="size-3.5" />
-                Finalize Period
+                Finalizar período
               </Button>
             </>
           ) : (
@@ -344,7 +344,7 @@ export default function PeriodDetailPage() {
                 className="gap-1.5"
               >
                 <FileSpreadsheetIcon className="size-3.5" />
-                Summary
+                Resumen
               </Button>
               <Button
                 variant="outline"
@@ -355,7 +355,7 @@ export default function PeriodDetailPage() {
                 className="gap-1.5"
               >
                 <DownloadIcon className="size-3.5" />
-                Siigo Export
+                Exportar Siigo
               </Button>
               <Button
                 size="sm"
@@ -365,7 +365,7 @@ export default function PeriodDetailPage() {
                 className="gap-1.5"
               >
                 <PackageIcon className="size-3.5" />
-                Download All
+                Descargar todo
               </Button>
             </>
           )}
@@ -376,27 +376,27 @@ export default function PeriodDetailPage() {
       <div className="grid gap-3 sm:grid-cols-5">
         {[
           {
-            label: "Total Expected",
+            label: "Total esperado",
             value: formatMins(totals.totalExpectedMins),
             accent: "var(--primary)",
           },
           {
-            label: "Total Worked",
+            label: "Total trabajado",
             value: formatMins(totals.totalWorkedMins),
             accent: "var(--primary)",
           },
           {
-            label: "Total Overtime",
+            label: "Total horas extra",
             value: formatMins(totals.overtimeOwedMins),
             accent: "var(--warning)",
           },
           {
-            label: "Total Recargos",
+            label: "Total recargos",
             value: formatCOP(totals.totalRecargosCost),
             accent: "var(--nocturno)",
           },
           {
-            label: "Total Extras",
+            label: "Total extras",
             value: formatCOP(totals.totalExtrasCost),
             accent: "var(--overtime)",
           },
@@ -426,9 +426,9 @@ export default function PeriodDetailPage() {
       <Card>
         <CardHeader className="border-b px-5 py-3.5">
           <CardTitle className="flex items-center justify-between text-sm font-bold tracking-[-0.01em]">
-            Employee Breakdown
+            Desglose por empleado
             <span className="font-mono text-xs font-semibold text-primary">
-              Total Surcharges: {formatCOP(totals.totalSurcharges)}
+              Total recargos: {formatCOP(totals.totalSurcharges)}
             </span>
           </CardTitle>
         </CardHeader>
@@ -437,21 +437,21 @@ export default function PeriodDetailPage() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Employee</TableHead>
-                  <TableHead className="w-16">Expected</TableHead>
-                  <TableHead className="w-16">Worked</TableHead>
-                  <TableHead className="w-14">Late</TableHead>
+                  <TableHead>Empleado</TableHead>
+                  <TableHead className="w-16">Esperado</TableHead>
+                  <TableHead className="w-16">Trabajado</TableHead>
+                  <TableHead className="w-14">Tardanza</TableHead>
                   <TableHead className="w-16">RN</TableHead>
                   <TableHead className="w-16">RF</TableHead>
                   <TableHead className="w-16">RFN</TableHead>
-                  <TableHead className="w-16">OT Earned</TableHead>
-                  <TableHead className="w-16">Offset</TableHead>
-                  <TableHead className="w-16">OT Avail</TableHead>
-                  <TableHead className="w-20">Bank</TableHead>
-                  <TableHead className="w-16">OT Paid</TableHead>
+                  <TableHead className="w-16">HE Ganadas</TableHead>
+                  <TableHead className="w-16">Compensación</TableHead>
+                  <TableHead className="w-16">HE Disp.</TableHead>
+                  <TableHead className="w-20">Acumular</TableHead>
+                  <TableHead className="w-16">HE Pagadas</TableHead>
                   <TableHead className="w-16">HED</TableHead>
                   <TableHead className="w-16">HEN</TableHead>
-                  <TableHead className="w-20">Surcharges</TableHead>
+                  <TableHead className="w-20">Recargos</TableHead>
                   <TableHead className="w-16">Comp</TableHead>
                 </TableRow>
               </TableHeader>
@@ -607,7 +607,7 @@ export default function PeriodDetailPage() {
               </TableBody>
               <TableFooter>
                 <TableRow>
-                  <TableCell className="text-xs font-bold">Totals</TableCell>
+                  <TableCell className="text-xs font-bold">Totales</TableCell>
                   <TableCell className="font-mono text-[11px] font-bold">
                     {formatMins(totals.totalExpectedMins)}
                   </TableCell>
@@ -637,10 +637,9 @@ export default function PeriodDetailPage() {
       <Dialog open={finalizeOpen} onOpenChange={setFinalizeOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Finalize Period</DialogTitle>
+            <DialogTitle>Finalizar período</DialogTitle>
             <DialogDescription>
-              This will lock all calculations and comp decisions. You can still
-              export after finalizing. This action cannot be undone.
+              Esto bloqueará todos los cálculos y decisiones de compensatorio. Aún podrá exportar después de finalizar. Esta acción no se puede deshacer.
             </DialogDescription>
           </DialogHeader>
           {finalizeError && (
@@ -661,16 +660,16 @@ export default function PeriodDetailPage() {
                 href="/attendance"
                 className="mt-2 inline-block text-xs font-medium text-primary underline"
               >
-                Go to Attendance to resolve
+                Ir a marcaciones para resolver
               </Link>
             </div>
           )}
           <DialogFooter>
             <Button variant="outline" onClick={() => setFinalizeOpen(false)}>
-              Cancel
+              Cancelar
             </Button>
             <Button onClick={handleFinalize} disabled={finalizing}>
-              {finalizing ? "Finalizing..." : "Finalize"}
+              {finalizing ? "Finalizando..." : "Finalizar"}
             </Button>
           </DialogFooter>
         </DialogContent>

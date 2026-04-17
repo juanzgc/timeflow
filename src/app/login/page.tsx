@@ -39,7 +39,7 @@ export default function LoginPage() {
     setLoading(false);
 
     if (result?.error) {
-      setError("Invalid username or password");
+      setError("Usuario o contraseña inválidos");
     } else {
       router.push(callbackUrl);
       router.refresh();
@@ -59,12 +59,12 @@ export default function LoginPage() {
           <CardTitle className="text-xl font-extrabold tracking-[-0.04em]">
             TimeFlow
           </CardTitle>
-          <CardDescription>Sign in to continue</CardDescription>
+          <CardDescription>Inicia sesión para continuar</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="username">Username</Label>
+              <Label htmlFor="username">Usuario</Label>
               <Input
                 id="username"
                 type="text"
@@ -76,7 +76,7 @@ export default function LoginPage() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
+              <Label htmlFor="password">Contraseña</Label>
               <Input
                 id="password"
                 type="password"
@@ -95,7 +95,7 @@ export default function LoginPage() {
               className="w-full shadow-[0_2px_8px_rgba(0,184,153,0.12)]"
               disabled={loading}
             >
-              {loading ? "Signing in..." : "Sign in"}
+              {loading ? "Iniciando sesión..." : "Iniciar sesión"}
             </Button>
           </form>
         </CardContent>

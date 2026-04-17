@@ -34,15 +34,15 @@ export function GroupCard({
 
   const requiredSlots = (scheduleInfo?.employeeCount ?? group.employeeCount) * 7;
   const status = !scheduleInfo
-    ? "Not created"
+    ? "No creado"
     : scheduleInfo.coveredSlots >= requiredSlots && requiredSlots > 0
-      ? "Complete"
-      : "Draft";
+      ? "Completo"
+      : "Borrador";
 
   const statusStyle =
-    status === "Complete"
+    status === "Completo"
       ? { color: "var(--success-text)", backgroundColor: "var(--success-bg)" }
-      : status === "Draft"
+      : status === "Borrador"
         ? { color: "var(--warning-text)", backgroundColor: "var(--warning-bg)" }
         : { color: "var(--muted-foreground)", backgroundColor: "var(--muted)" };
 
@@ -73,7 +73,7 @@ export function GroupCard({
               </span>
             </div>
             <p className="mt-0.5 text-xs text-muted-foreground">
-              {group.employeeCount} employee{group.employeeCount !== 1 ? "s" : ""}
+              {group.employeeCount} empleado{group.employeeCount !== 1 ? "s" : ""}
             </p>
           </div>
           <Badge

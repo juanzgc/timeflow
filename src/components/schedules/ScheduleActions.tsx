@@ -40,15 +40,15 @@ export function ScheduleActions({
 
   const prevMonday = new Date(weekStart + "T12:00:00");
   const prevMondayShifted = new Date(prevMonday.getTime() - 7 * 86400000);
-  const prevWeekLabel = `${prevMondayShifted.toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: COL_TZ })} – ${new Date(prevMondayShifted.getTime() + 6 * 86400000).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: COL_TZ })}`;
+  const prevWeekLabel = `${prevMondayShifted.toLocaleDateString("es-CO", { month: "short", day: "numeric", timeZone: COL_TZ })} – ${new Date(prevMondayShifted.getTime() + 6 * 86400000).toLocaleDateString("es-CO", { month: "short", day: "numeric", timeZone: COL_TZ })}`;
 
   const currentMonday = new Date(weekStart + "T12:00:00");
-  const currentWeekLabel = `${currentMonday.toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: COL_TZ })} – ${new Date(currentMonday.getTime() + 6 * 86400000).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: COL_TZ })}`;
+  const currentWeekLabel = `${currentMonday.toLocaleDateString("es-CO", { month: "short", day: "numeric", timeZone: COL_TZ })} – ${new Date(currentMonday.getTime() + 6 * 86400000).toLocaleDateString("es-CO", { month: "short", day: "numeric", timeZone: COL_TZ })}`;
 
   const confirmMessages = {
-    copy: `This will copy all shifts from ${prevWeekLabel} to ${currentWeekLabel} for ${groupName}. Continue?`,
-    clear: `This will remove all shifts for ${currentWeekLabel} for ${groupName}. This cannot be undone.`,
-    delete: `This will delete the entire schedule for ${currentWeekLabel} for ${groupName}, including all shifts. This cannot be undone.`,
+    copy: `Esto copiará todos los turnos de ${prevWeekLabel} a ${currentWeekLabel} para ${groupName}. ¿Continuar?`,
+    clear: `Esto eliminará todos los turnos de ${currentWeekLabel} para ${groupName}. Esta acción no se puede deshacer.`,
+    delete: `Esto eliminará el horario completo de ${currentWeekLabel} para ${groupName}, incluyendo todos los turnos. Esta acción no se puede deshacer.`,
   };
 
   const handleConfirm = async () => {
@@ -70,27 +70,27 @@ export function ScheduleActions({
           render={
             <Button variant="outline" size="sm">
               <MoreHorizontalIcon className="mr-1.5 size-4" />
-              Actions
+              Acciones
             </Button>
           }
         />
         <DropdownMenuContent align="end">
           <DropdownMenuItem onClick={() => setConfirmAction("copy")}>
             <CopyIcon className="mr-2 size-4" />
-            Copy from previous week
+            Copiar de semana anterior
           </DropdownMenuItem>
           {scheduleId && (
             <>
               <DropdownMenuItem onClick={() => setConfirmAction("clear")}>
                 <EraserIcon className="mr-2 size-4" />
-                Clear all shifts
+                Limpiar todos los turnos
               </DropdownMenuItem>
               <DropdownMenuItem
                 className="text-danger focus:text-danger"
                 onClick={() => setConfirmAction("delete")}
               >
                 <Trash2Icon className="mr-2 size-4" />
-                Delete schedule
+                Eliminar horario
               </DropdownMenuItem>
             </>
           )}
@@ -105,10 +105,10 @@ export function ScheduleActions({
           <DialogHeader>
             <DialogTitle className="text-base font-bold">
               {confirmAction === "copy"
-                ? "Copy Previous Week"
+                ? "Copiar semana anterior"
                 : confirmAction === "clear"
-                  ? "Clear All Shifts"
-                  : "Delete Schedule"}
+                  ? "Limpiar todos los turnos"
+                  : "Eliminar horario"}
             </DialogTitle>
           </DialogHeader>
           <p className="text-sm text-muted-foreground">
@@ -120,7 +120,7 @@ export function ScheduleActions({
               size="sm"
               onClick={() => setConfirmAction(null)}
             >
-              Cancel
+              Cancelar
             </Button>
             <Button
               size="sm"
@@ -129,12 +129,12 @@ export function ScheduleActions({
               disabled={loading}
             >
               {loading
-                ? "Working..."
+                ? "Procesando..."
                 : confirmAction === "copy"
-                  ? "Copy"
+                  ? "Copiar"
                   : confirmAction === "clear"
-                    ? "Clear"
-                    : "Delete"}
+                    ? "Limpiar"
+                    : "Eliminar"}
             </Button>
           </DialogFooter>
         </DialogContent>

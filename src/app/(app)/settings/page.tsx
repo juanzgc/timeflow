@@ -35,8 +35,16 @@ import {
   SaveIcon,
   UserPlusIcon,
   ShieldOffIcon,
+  PencilIcon,
+  CheckIcon,
+  UsersIcon,
 } from "lucide-react";
 
+type Group = {
+  id: number;
+  name: string;
+  employeeCount: number;
+};
 type Holiday = { date: string; name: string };
 type AdminUser = {
   id: number;
@@ -49,6 +57,16 @@ type AdminUser = {
 };
 
 export default function SettingsPage() {
+  // ── Groups ──────────────────────────────────────────────
+  const [groupsList, setGroupsList] = useState<Group[]>([]);
+  const [loadingGroups, setLoadingGroups] = useState(true);
+  const [addGroupOpen, setAddGroupOpen] = useState(false);
+  const [newGroupName, setNewGroupName] = useState("");
+  const [creatingGroup, setCreatingGroup] = useState(false);
+  const [editingGroupId, setEditingGroupId] = useState<number | null>(null);
+  const [editingGroupName, setEditingGroupName] = useState("");
+  const [savingGroupId, setSavingGroupId] = useState<number | null>(null);
+
   // ── General settings ──────────────────────────────────
   const [settingsMap, setSettingsMap] = useState<Record<string, string>>({});
   const [loadingSettings, setLoadingSettings] = useState(true);
@@ -74,6 +92,13 @@ export default function SettingsPage() {
   const [creatingUser, setCreatingUser] = useState(false);
 
   // ── Fetch all data ────────────────────────────────────
+  const fetchGroups = useCallback(async () => {
+    setLoadingGroups(true);
+    const res = await fetch("/api/groups");
+    if (res.ok) setGroupsList(await res.json());
+    setLoadingGroups(false);
+  }, []);
+
   const fetchSettings = useCallback(async () => {
     setLoadingSettings(true);
     const res = await fetch("/api/settings");
@@ -96,10 +121,44 @@ export default function SettingsPage() {
   }, []);
 
   useEffect(() => {
+    fetchGroups();
     fetchSettings(); // eslint-disable-line react-hooks/set-state-in-effect -- initial data fetch
     fetchHolidays();
     fetchUsers();
-  }, [fetchSettings, fetchHolidays, fetchUsers]);
+  }, [fetchGroups, fetchSettings, fetchHolidays, fetchUsers]);
+
+  // ── Group handlers ───────────────────────────────────
+  const addGroup = async () => {
+    if (!newGroupName.trim()) return;
+    setCreatingGroup(true);
+    const res = await fetch("/api/groups", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: newGroupName.trim() }),
+    });
+    if (res.ok) {
+      setAddGroupOpen(false);
+      setNewGroupName("");
+      fetchGroups();
+    }
+    setCreatingGroup(false);
+  };
+
+  const renameGroup = async (id: number) => {
+    if (!editingGroupName.trim()) return;
+    setSavingGroupId(id);
+    const res = await fetch(`/api/groups/${id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: editingGroupName.trim() }),
+    });
+    if (res.ok) {
+      setEditingGroupId(null);
+      setEditingGroupName("");
+      fetchGroups();
+    }
+    setSavingGroupId(null);
+  };
 
   // ── Handlers ──────────────────────────────────────────
   const updateSetting = (key: string, value: string) => {
@@ -216,7 +275,7 @@ export default function SettingsPage() {
   if (loadingSettings) {
     return (
       <div className="flex h-64 items-center justify-center text-xs text-muted-foreground">
-        Loading settings...
+        Cargando configuración...
       </div>
     );
   }
@@ -226,26 +285,176 @@ export default function SettingsPage() {
       {/* Header */}
       <div>
         <h1 className="text-[22px] font-extrabold tracking-[-0.04em]">
-          Settings
+          Configuración
         </h1>
         <p className="mt-0.5 text-[13px] text-muted-foreground">
-          BioTime connection, daily limits, Siigo export, holidays, and user
-          management.
+          Grupos de empleados, límites diarios, exportación Siigo, festivos y
+          gestión de usuarios.
         </p>
       </div>
+
+      {/* ── Employee Groups ───────────────────────────────── */}
+      <Card>
+        <CardHeader className="border-b px-5 py-3.5">
+          <CardTitle className="flex items-center justify-between text-sm font-bold tracking-[-0.01em]">
+            Grupos de empleados
+            <Dialog open={addGroupOpen} onOpenChange={setAddGroupOpen}>
+              <DialogTrigger
+                render={<Button size="sm" className="gap-1.5 text-xs" />}
+              >
+                <PlusIcon className="size-3.5" />
+                Agregar grupo
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-sm">
+                <DialogHeader>
+                  <DialogTitle>Agregar grupo</DialogTitle>
+                  <DialogDescription>
+                    Crear un nuevo grupo de empleados.
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="space-y-3 py-2">
+                  <div>
+                    <label className="mb-1 block text-xs font-medium text-muted-foreground">
+                      Nombre del grupo
+                    </label>
+                    <Input
+                      value={newGroupName}
+                      onChange={(e) => setNewGroupName(e.target.value)}
+                      className="text-sm"
+                      placeholder="Ej: Cocina, Bar, etc."
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") addGroup();
+                      }}
+                    />
+                  </div>
+                </div>
+                <DialogFooter>
+                  <Button
+                    onClick={addGroup}
+                    disabled={creatingGroup || !newGroupName.trim()}
+                  >
+                    {creatingGroup ? "Creando..." : "Crear"}
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="p-0">
+          {loadingGroups ? (
+            <div className="flex h-32 items-center justify-center text-xs text-muted-foreground">
+              Cargando...
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Nombre</TableHead>
+                  <TableHead className="w-32">Empleados</TableHead>
+                  <TableHead className="w-24">Acciones</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {groupsList.map((g) => (
+                  <TableRow key={g.id}>
+                    <TableCell>
+                      {editingGroupId === g.id ? (
+                        <div className="flex items-center gap-2">
+                          <Input
+                            value={editingGroupName}
+                            onChange={(e) =>
+                              setEditingGroupName(e.target.value)
+                            }
+                            className="h-7 w-48 text-sm"
+                            autoFocus
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") renameGroup(g.id);
+                              if (e.key === "Escape") {
+                                setEditingGroupId(null);
+                                setEditingGroupName("");
+                              }
+                            }}
+                          />
+                          <Button
+                            variant="ghost"
+                            size="icon-xs"
+                            onClick={() => renameGroup(g.id)}
+                            disabled={
+                              savingGroupId === g.id ||
+                              !editingGroupName.trim()
+                            }
+                          >
+                            <CheckIcon className="size-3.5" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon-xs"
+                            onClick={() => {
+                              setEditingGroupId(null);
+                              setEditingGroupName("");
+                            }}
+                          >
+                            <XIcon className="size-3.5" />
+                          </Button>
+                        </div>
+                      ) : (
+                        <span className="text-xs font-semibold">
+                          {g.name}
+                        </span>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+                        <UsersIcon className="size-3" />
+                        {g.employeeCount}
+                      </span>
+                    </TableCell>
+                    <TableCell>
+                      {editingGroupId !== g.id && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="gap-1 text-xs"
+                          onClick={() => {
+                            setEditingGroupId(g.id);
+                            setEditingGroupName(g.name);
+                          }}
+                        >
+                          <PencilIcon className="size-3" />
+                          Renombrar
+                        </Button>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                ))}
+                {groupsList.length === 0 && (
+                  <TableRow>
+                    <TableCell
+                      colSpan={3}
+                      className="py-6 text-center text-xs text-muted-foreground"
+                    >
+                      No hay grupos configurados.
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
 
       {/* ── Daily Limits & Overtime ───────────────────────── */}
       <Card>
         <CardHeader className="border-b px-5 py-3.5">
           <CardTitle className="text-sm font-bold tracking-[-0.01em]">
-            Daily Limits & Overtime
+            Límites diarios y horas extra
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4 px-5 py-4">
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
               <label className="mb-1 block text-xs font-medium text-muted-foreground">
-                Sun–Thu daily limit (minutes)
+                Límite diario dom–jue (minutos)
               </label>
               <Input
                 type="number"
@@ -256,12 +465,12 @@ export default function SettingsPage() {
                 className="w-32 text-sm"
               />
               <p className="mt-0.5 text-[10px] text-muted-foreground">
-                Default: 420 (7h)
+                Por defecto: 420 (7h)
               </p>
             </div>
             <div>
               <label className="mb-1 block text-xs font-medium text-muted-foreground">
-                Fri–Sat daily limit (minutes)
+                Límite diario vie–sáb (minutos)
               </label>
               <Input
                 type="number"
@@ -272,7 +481,7 @@ export default function SettingsPage() {
                 className="w-32 text-sm"
               />
               <p className="mt-0.5 text-[10px] text-muted-foreground">
-                Default: 480 (8h)
+                Por defecto: 480 (8h)
               </p>
             </div>
           </div>
@@ -283,7 +492,7 @@ export default function SettingsPage() {
             className="gap-1.5"
           >
             <SaveIcon className="size-3.5" />
-            {savingSettings ? "Saving..." : "Save"}
+            {savingSettings ? "Guardando..." : "Guardar"}
           </Button>
         </CardContent>
       </Card>
@@ -292,14 +501,14 @@ export default function SettingsPage() {
       <Card>
         <CardHeader className="border-b px-5 py-3.5">
           <CardTitle className="text-sm font-bold tracking-[-0.01em]">
-            Siigo Export Configuration
+            Configuración de exportación Siigo
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4 px-5 py-4">
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
               <label className="mb-1 block text-xs font-medium text-muted-foreground">
-                Identification field
+                Campo de identificación
               </label>
               <Select
                 value={
@@ -336,14 +545,14 @@ export default function SettingsPage() {
                   }
                   className="accent-primary"
                 />
-                Include calculated value column
+                Incluir columna de valor calculado
               </label>
             </div>
           </div>
 
           <div>
             <label className="mb-2 block text-xs font-medium text-muted-foreground">
-              Concept Code Mapping
+              Mapeo de códigos de concepto
             </label>
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
               {[
@@ -395,7 +604,7 @@ export default function SettingsPage() {
             className="gap-1.5"
           >
             <SaveIcon className="size-3.5" />
-            {savingSettings ? "Saving..." : "Save"}
+            {savingSettings ? "Guardando..." : "Guardar"}
           </Button>
         </CardContent>
       </Card>
@@ -404,7 +613,7 @@ export default function SettingsPage() {
       <Card>
         <CardHeader className="border-b px-5 py-3.5">
           <CardTitle className="flex items-center justify-between text-sm font-bold tracking-[-0.01em]">
-            Holiday Management — 2026
+            Gestión de festivos — 2026
             <div className="flex items-center gap-2">
               <Button
                 variant="outline"
@@ -414,7 +623,7 @@ export default function SettingsPage() {
                 className="gap-1.5 text-xs"
               >
                 <RotateCcwIcon className="size-3" />
-                Reset to Default
+                Restablecer por defecto
               </Button>
               <Dialog
                 open={addHolidayOpen}
@@ -426,19 +635,19 @@ export default function SettingsPage() {
                   }
                 >
                   <PlusIcon className="size-3.5" />
-                  Add Holiday
+                  Agregar festivo
                 </DialogTrigger>
                 <DialogContent className="sm:max-w-sm">
                   <DialogHeader>
-                    <DialogTitle>Add Holiday</DialogTitle>
+                    <DialogTitle>Agregar festivo</DialogTitle>
                     <DialogDescription>
-                      Add a custom holiday date for 2026.
+                      Agregar una fecha de festivo personalizada para 2026.
                     </DialogDescription>
                   </DialogHeader>
                   <div className="space-y-3 py-2">
                     <div>
                       <label className="mb-1 block text-xs font-medium text-muted-foreground">
-                        Date
+                        Fecha
                       </label>
                       <Input
                         type="date"
@@ -449,7 +658,7 @@ export default function SettingsPage() {
                     </div>
                     <div>
                       <label className="mb-1 block text-xs font-medium text-muted-foreground">
-                        Name
+                        Nombre
                       </label>
                       <Input
                         value={newHolidayName}
@@ -464,7 +673,7 @@ export default function SettingsPage() {
                       onClick={addHoliday}
                       disabled={!newHolidayDate || !newHolidayName}
                     >
-                      Add
+                      Agregar
                     </Button>
                   </DialogFooter>
                 </DialogContent>
@@ -475,14 +684,14 @@ export default function SettingsPage() {
         <CardContent className="p-0">
           {loadingHolidays ? (
             <div className="flex h-32 items-center justify-center text-xs text-muted-foreground">
-              Loading...
+              Cargando...
             </div>
           ) : (
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Date</TableHead>
-                  <TableHead>Name</TableHead>
+                  <TableHead>Fecha</TableHead>
+                  <TableHead>Nombre</TableHead>
                   <TableHead className="w-16" />
                 </TableRow>
               </TableHeader>
@@ -515,7 +724,7 @@ export default function SettingsPage() {
       <Card>
         <CardHeader className="border-b px-5 py-3.5">
           <CardTitle className="flex items-center justify-between text-sm font-bold tracking-[-0.01em]">
-            Admin Users
+            Usuarios administradores
             <Dialog
               open={createUserOpen}
               onOpenChange={setCreateUserOpen}
@@ -524,19 +733,19 @@ export default function SettingsPage() {
                 render={<Button size="sm" className="gap-1.5 text-xs" />}
               >
                 <UserPlusIcon className="size-3.5" />
-                Add User
+                Agregar usuario
               </DialogTrigger>
               <DialogContent className="sm:max-w-md">
                 <DialogHeader>
-                  <DialogTitle>Create Admin User</DialogTitle>
+                  <DialogTitle>Crear usuario administrador</DialogTitle>
                   <DialogDescription>
-                    Create a new administrator account.
+                    Crear una nueva cuenta de administrador.
                   </DialogDescription>
                 </DialogHeader>
                 <div className="space-y-3 py-2">
                   <div>
                     <label className="mb-1 block text-xs font-medium text-muted-foreground">
-                      Username
+                      Usuario
                     </label>
                     <Input
                       value={newUsername}
@@ -546,7 +755,7 @@ export default function SettingsPage() {
                   </div>
                   <div>
                     <label className="mb-1 block text-xs font-medium text-muted-foreground">
-                      Email (optional)
+                      Email (opcional)
                     </label>
                     <Input
                       type="email"
@@ -557,18 +766,18 @@ export default function SettingsPage() {
                   </div>
                   <div>
                     <label className="mb-1 block text-xs font-medium text-muted-foreground">
-                      Display Name
+                      Nombre a mostrar
                     </label>
                     <Input
                       value={newDisplayName}
                       onChange={(e) => setNewDisplayName(e.target.value)}
                       className="text-sm"
-                      placeholder={newUsername || "Display name"}
+                      placeholder={newUsername || "Nombre a mostrar"}
                     />
                   </div>
                   <div>
                     <label className="mb-1 block text-xs font-medium text-muted-foreground">
-                      Password
+                      Contraseña
                     </label>
                     <Input
                       type="password"
@@ -579,7 +788,7 @@ export default function SettingsPage() {
                   </div>
                   <div>
                     <label className="mb-1 block text-xs font-medium text-muted-foreground">
-                      Role
+                      Rol
                     </label>
                     <Select
                       value={newRole}
@@ -602,7 +811,7 @@ export default function SettingsPage() {
                     onClick={createUser}
                     disabled={creatingUser || !newUsername || !newPassword}
                   >
-                    {creatingUser ? "Creating..." : "Create"}
+                    {creatingUser ? "Creando..." : "Crear"}
                   </Button>
                 </DialogFooter>
               </DialogContent>
@@ -612,17 +821,17 @@ export default function SettingsPage() {
         <CardContent className="p-0">
           {loadingUsers ? (
             <div className="flex h-32 items-center justify-center text-xs text-muted-foreground">
-              Loading...
+              Cargando...
             </div>
           ) : (
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Username</TableHead>
-                  <TableHead>Display Name</TableHead>
-                  <TableHead>Role</TableHead>
-                  <TableHead className="w-20">Status</TableHead>
-                  <TableHead className="w-24">Actions</TableHead>
+                  <TableHead>Usuario</TableHead>
+                  <TableHead>Nombre a mostrar</TableHead>
+                  <TableHead>Rol</TableHead>
+                  <TableHead className="w-20">Estado</TableHead>
+                  <TableHead className="w-24">Acciones</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -663,7 +872,7 @@ export default function SettingsPage() {
                             : "var(--danger-bg)",
                         }}
                       >
-                        {u.isActive ? "Active" : "Disabled"}
+                        {u.isActive ? "Activo" : "Deshabilitado"}
                       </span>
                     </TableCell>
                     <TableCell>
@@ -675,7 +884,7 @@ export default function SettingsPage() {
                           onClick={() => disableUser(u.id)}
                         >
                           <ShieldOffIcon className="size-3" />
-                          Disable
+                          Deshabilitar
                         </Button>
                       ) : (
                         <Button
@@ -684,7 +893,7 @@ export default function SettingsPage() {
                           className="gap-1 text-xs"
                           onClick={() => enableUser(u.id)}
                         >
-                          Enable
+                          Habilitar
                         </Button>
                       )}
                     </TableCell>

@@ -1,8 +1,10 @@
 import { NextResponse } from "next/server";
 import { and, eq, gte, lte } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { dailyAttendance } from "@/drizzle/schema";
+import { dailyAttendance, employees, punchLogs, punchCorrections } from "@/drizzle/schema";
 import { auth } from "@/auth";
+import { syncIfStale } from "@/lib/biotime/sync-if-stale";
+import { calculateAttendance } from "@/lib/engine/attendance-calculator";
 
 export async function GET(
   request: Request,
@@ -30,6 +32,14 @@ export async function GET(
     );
   }
 
+  // Calculate-on-read pattern: sync + recalculate before querying
+  try {
+    await syncIfStale(5);
+    await calculateAttendance({ employeeId, startDate, endDate });
+  } catch {
+    // Continue with existing data
+  }
+
   const records = await db
     .select()
     .from(dailyAttendance)
@@ -42,5 +52,148 @@ export async function GET(
     )
     .orderBy(dailyAttendance.workDate);
 
-  return NextResponse.json(records);
+  // Calculate summary
+  const summary = {
+    daysWorked: 0,
+    daysAbsent: 0,
+    daysOff: 0,
+    totalWorkedMins: 0,
+    totalLateMins: 0,
+    totalExcessMins: 0,
+    totalNocturnoMins: 0,
+    totalFestivoMins: 0,
+    totalOrdinaryMins: 0,
+  };
+
+  for (const r of records) {
+    if (r.status === "on-time" || r.status === "late") {
+      summary.daysWorked++;
+    } else if (r.status === "absent") {
+      summary.daysAbsent++;
+    } else if (r.status === "day-off" || r.status === "comp-day-off") {
+      summary.daysOff++;
+    }
+    summary.totalWorkedMins += r.totalWorkedMins;
+    summary.totalLateMins += r.lateMinutes;
+    summary.totalExcessMins += r.excessHedMins + r.excessHenMins;
+    summary.totalNocturnoMins += r.minsNocturno;
+    summary.totalFestivoMins += r.minsFestivoDay + r.minsFestivoNight;
+    summary.totalOrdinaryMins += r.minsOrdinaryDay;
+  }
+
+  return NextResponse.json({ records, summary });
+}
+
+export async function DELETE(
+  request: Request,
+  { params }: { params: Promise<{ id: string }> },
+) {
+  const session = await auth();
+  if (!session?.user) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const { id: idStr } = await params;
+  const employeeId = parseInt(idStr, 10);
+  if (isNaN(employeeId)) {
+    return NextResponse.json({ error: "Invalid employee id" }, { status: 400 });
+  }
+
+  let body: { workDate?: string; reason?: string };
+  try {
+    body = await request.json();
+  } catch {
+    return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
+  }
+
+  const { workDate, reason } = body;
+  if (!workDate) {
+    return NextResponse.json({ error: "workDate is required" }, { status: 400 });
+  }
+  if (!reason || reason.length < 5) {
+    return NextResponse.json(
+      { error: "Reason is required and must be at least 5 characters" },
+      { status: 400 },
+    );
+  }
+
+  // Fetch the attendance record
+  const [record] = await db
+    .select()
+    .from(dailyAttendance)
+    .where(
+      and(
+        eq(dailyAttendance.employeeId, employeeId),
+        eq(dailyAttendance.workDate, workDate),
+      ),
+    )
+    .limit(1);
+
+  if (!record) {
+    return NextResponse.json(
+      { error: "Attendance record not found" },
+      { status: 404 },
+    );
+  }
+
+  // Look up employee empCode for punch log deletion
+  const [emp] = await db
+    .select({ empCode: employees.empCode })
+    .from(employees)
+    .where(eq(employees.id, employeeId))
+    .limit(1);
+
+  if (!emp) {
+    return NextResponse.json({ error: "Employee not found" }, { status: 404 });
+  }
+
+  // Delete punch logs for this empCode within the work date window
+  // Use start of work date to end of next day to cover midnight-crossing shifts
+  const dayStart = new Date(workDate + "T00:00:00-05:00");
+  const dayEnd = new Date(workDate + "T00:00:00-05:00");
+  dayEnd.setDate(dayEnd.getDate() + 2);
+
+  await db
+    .delete(punchLogs)
+    .where(
+      and(
+        eq(punchLogs.empCode, emp.empCode),
+        gte(punchLogs.punchTime, dayStart),
+        lte(punchLogs.punchTime, dayEnd),
+      ),
+    );
+
+  // Insert audit records in punch_corrections
+  const correctedBy = session.user.name ?? session.user.email ?? "admin";
+
+  if (record.clockIn) {
+    await db.insert(punchCorrections).values({
+      employeeId,
+      workDate,
+      action: "delete_in",
+      oldValue: record.clockIn,
+      newValue: null,
+      reason,
+      correctedBy,
+    });
+  }
+
+  if (record.clockOut) {
+    await db.insert(punchCorrections).values({
+      employeeId,
+      workDate,
+      action: "delete_out",
+      oldValue: record.clockOut,
+      newValue: null,
+      reason,
+      correctedBy,
+    });
+  }
+
+  // Delete the daily_attendance row
+  await db
+    .delete(dailyAttendance)
+    .where(eq(dailyAttendance.id, record.id));
+
+  return NextResponse.json({ success: true });
 }

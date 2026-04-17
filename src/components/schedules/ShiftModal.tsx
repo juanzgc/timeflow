@@ -136,7 +136,7 @@ export function ShiftModal({
   // Format date for title
   const dateObj = new Date(date + "T12:00:00");
   const monthNames = [
-    "Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec",
+    "ene","feb","mar","abr","may","jun","jul","ago","sep","oct","nov","dic",
   ];
   const dateLabel = `${DAY_NAMES_SHORT[dayOfWeek]}, ${monthNames[colMonth(dateObj)]} ${colDate(dateObj)}`;
 
@@ -160,7 +160,7 @@ export function ShiftModal({
           shiftType === "comp_day_off" ? compDebit : undefined,
       });
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to save");
+      setError(e instanceof Error ? e.message : "Error al guardar");
     } finally {
       setSaving(false);
     }
@@ -171,7 +171,7 @@ export function ShiftModal({
     try {
       await onDelete(existingShifts.map((s) => s.id));
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to delete");
+      setError(e instanceof Error ? e.message : "Error al eliminar");
     } finally {
       setSaving(false);
     }
@@ -201,8 +201,8 @@ export function ShiftModal({
               {type === "regular"
                 ? "Regular"
                 : type === "day_off"
-                  ? "Day Off"
-                  : "Comp Day Off"}
+                  ? "Descanso"
+                  : "Día comp."}
             </button>
           ))}
         </div>
@@ -213,11 +213,11 @@ export function ShiftModal({
             {/* Segment 1 */}
             <div className="space-y-3">
               <div className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground/60">
-                {isSplit ? "Segment 1" : "Shift Times"}
+                {isSplit ? "Segmento 1" : "Horario del turno"}
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <Label className="text-xs">Start</Label>
+                  <Label className="text-xs">Inicio</Label>
                   <Input
                     type="time"
                     value={start1}
@@ -226,7 +226,7 @@ export function ShiftModal({
                   />
                 </div>
                 <div>
-                  <Label className="text-xs">End</Label>
+                  <Label className="text-xs">Fin</Label>
                   <Input
                     type="time"
                     value={end1}
@@ -237,7 +237,7 @@ export function ShiftModal({
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <Label className="text-xs">Break (min)</Label>
+                  <Label className="text-xs">Descanso (min)</Label>
                   <Input
                     type="number"
                     min={0}
@@ -249,7 +249,7 @@ export function ShiftModal({
                 <div className="flex items-end">
                   {crosses1 && (
                     <span className="rounded-full bg-nocturno-bg px-2 py-1 text-[10px] font-semibold text-nocturno-text">
-                      Crosses midnight
+                      Cruza medianoche
                     </span>
                   )}
                 </div>
@@ -265,7 +265,7 @@ export function ShiftModal({
                 className="size-3.5 rounded accent-primary"
               />
               <span className="text-xs font-medium">
-                Split shift (turno partido)
+                Turno partido
               </span>
             </label>
 
@@ -273,11 +273,11 @@ export function ShiftModal({
             {isSplit && (
               <div className="space-y-3 border-l-2 border-primary/20 pl-3">
                 <div className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground/60">
-                  Segment 2
+                  Segmento 2
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <Label className="text-xs">Start</Label>
+                    <Label className="text-xs">Inicio</Label>
                     <Input
                       type="time"
                       value={start2}
@@ -286,7 +286,7 @@ export function ShiftModal({
                     />
                   </div>
                   <div>
-                    <Label className="text-xs">End</Label>
+                    <Label className="text-xs">Fin</Label>
                     <Input
                       type="time"
                       value={end2}
@@ -296,7 +296,7 @@ export function ShiftModal({
                   </div>
                 </div>
                 <div>
-                  <Label className="text-xs">Break (min)</Label>
+                  <Label className="text-xs">Descanso (min)</Label>
                   <Input
                     type="number"
                     min={0}
@@ -317,7 +317,7 @@ export function ShiftModal({
                     <span className="font-mono font-medium text-foreground">
                       {minsToHoursDisplay(seg1Mins)}
                     </span>{" "}
-                    | Gap:{" "}
+                    | Brecha:{" "}
                     <span
                       className={`font-mono font-medium ${gap < 30 ? "text-danger" : "text-foreground"}`}
                     >
@@ -334,19 +334,19 @@ export function ShiftModal({
                   <span className="font-mono font-semibold text-foreground">
                     {minsToHoursDisplay(totalMins)}
                   </span>{" "}
-                  | Daily limit:{" "}
+                  | Límite diario:{" "}
                   <span className="font-mono font-medium">
                     {minsToHoursDisplay(dailyLimit)}
                   </span>
                 </p>
                 {excess > 0 && !shiftTooLong && (
                   <p className="font-semibold text-warning-text">
-                    +{minsToHoursDisplay(excess)} excess (overtime)
+                    +{minsToHoursDisplay(excess)} exceso (horas extra)
                   </p>
                 )}
                 {shiftTooLong && (
                   <p className="font-semibold text-danger">
-                    {seg1TooLong ? "Segment 1" : "Segment 2"} exceeds 12 hours ({minsToHoursDisplay(seg1TooLong ? seg1Mins : seg2Mins)}) — check that the times are correct
+                    {seg1TooLong ? "Segmento 1" : "Segmento 2"} excede 12 horas ({minsToHoursDisplay(seg1TooLong ? seg1Mins : seg2Mins)}) — verifique que los horarios sean correctos
                   </p>
                 )}
               </div>
@@ -359,7 +359,7 @@ export function ShiftModal({
           <div className="space-y-3">
             <div className="rounded-lg bg-info-bg/50 p-3 text-xs">
               <div className="flex justify-between">
-                <span className="text-muted-foreground">Current balance:</span>
+                <span className="text-muted-foreground">Saldo actual:</span>
                 <span
                   className={`font-mono font-semibold ${compBalance >= 0 ? "text-success-text" : "text-danger-text"}`}
                 >
@@ -369,7 +369,7 @@ export function ShiftModal({
               </div>
               <div className="mt-2 flex items-center justify-between">
                 <Label className="text-xs text-muted-foreground">
-                  Hours to debit:
+                  Horas a debitar:
                 </Label>
                 <Input
                   type="number"
@@ -382,7 +382,7 @@ export function ShiftModal({
                 />
               </div>
               <div className="mt-2 flex justify-between border-t pt-2">
-                <span className="text-muted-foreground">Balance after:</span>
+                <span className="text-muted-foreground">Saldo después:</span>
                 <span
                   className={`font-mono font-semibold ${compBalance - compDebit >= 0 ? "text-success-text" : "text-danger-text"}`}
                 >
@@ -393,9 +393,9 @@ export function ShiftModal({
             </div>
             {compBalance - compDebit < 0 && (
               <p className="text-xs font-medium text-warning-text">
-                This will put {employeeName.split(" ")[0]} at{" "}
-                {minsToHoursDisplay(Math.abs(compBalance - compDebit))} negative
-                (owes time)
+                Esto dejará a {employeeName.split(" ")[0]} con{" "}
+                {minsToHoursDisplay(Math.abs(compBalance - compDebit))} negativo
+                (debe tiempo)
               </p>
             )}
           </div>
@@ -404,7 +404,7 @@ export function ShiftModal({
         {/* Day off — no additional fields */}
         {shiftType === "day_off" && (
           <p className="py-4 text-center text-xs text-muted-foreground">
-            No scheduled hours for this day.
+            Sin horas programadas para este día.
           </p>
         )}
 
@@ -422,14 +422,14 @@ export function ShiftModal({
               disabled={saving}
             >
               <Trash2Icon className="mr-1 size-3.5" />
-              Delete
+              Eliminar
             </Button>
           )}
           <Button variant="outline" size="sm" onClick={onClose}>
-            Cancel
+            Cancelar
           </Button>
           <Button size="sm" onClick={handleSave} disabled={saving || shiftTooLong}>
-            {saving ? "Saving..." : "Save"}
+            {saving ? "Guardando..." : "Guardar"}
           </Button>
         </DialogFooter>
       </DialogContent>

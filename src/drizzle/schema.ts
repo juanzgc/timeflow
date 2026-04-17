@@ -121,9 +121,9 @@ export const punchCorrections = pgTable("punch_corrections", {
     .references(() => employees.id)
     .notNull(),
   workDate: date("work_date").notNull(),
-  action: text("action").notNull(), // 'add_in' | 'add_out' | 'edit_in' | 'edit_out'
+  action: text("action").notNull(), // 'add_in' | 'add_out' | 'edit_in' | 'edit_out' | 'delete_in' | 'delete_out'
   oldValue: timestamp("old_value"),
-  newValue: timestamp("new_value").notNull(),
+  newValue: timestamp("new_value"), // null for delete actions
   reason: text("reason").notNull(),
   correctedBy: text("corrected_by").notNull(),
   correctedAt: timestamp("corrected_at").defaultNow().notNull(),

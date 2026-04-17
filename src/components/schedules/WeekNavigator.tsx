@@ -4,10 +4,7 @@ import { ChevronLeftIcon, ChevronRightIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { colMonth, colDate, colFullYear, colDay, colAddDays, colombiaDate } from "@/lib/timezone";
 
-const MONTH_NAMES = [
-  "Jan", "Feb", "Mar", "Apr", "May", "Jun",
-  "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
-];
+const MONTH_NAMES = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
 
 function formatWeekRange(monday: Date): string {
   const sunday = colAddDays(monday, 6);
@@ -19,9 +16,9 @@ function formatWeekRange(monday: Date): string {
   const year = colFullYear(monday);
 
   if (colMonth(monday) === colMonth(sunday)) {
-    return `Week of ${mMonth} ${mDay} – ${sDay}, ${year}`;
+    return `Semana del ${mDay} de ${mMonth} – ${sDay}, ${year}`;
   }
-  return `Week of ${mMonth} ${mDay} – ${sMonth} ${sDay}, ${year}`;
+  return `Semana del ${mDay} de ${mMonth} – ${sDay} de ${sMonth}, ${year}`;
 }
 
 export function WeekNavigator({
@@ -69,7 +66,7 @@ export function WeekNavigator({
         className="ml-1 text-xs"
         onClick={goToday}
       >
-        Today
+        Hoy
       </Button>
     </div>
   );

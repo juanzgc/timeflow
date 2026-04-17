@@ -26,7 +26,7 @@ type Shift = {
   compDebitMins: number;
 };
 
-const DAY_NAMES = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+const DAY_NAMES = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
 
 export function ShiftGrid({
   weekStart,
@@ -73,7 +73,7 @@ export function ShiftGrid({
         <div className="grid grid-cols-[180px_repeat(7,1fr)] gap-px rounded-t-lg bg-border">
           <div className="sticky left-0 z-10 rounded-tl-lg bg-card px-3 py-2.5">
             <span className="text-xs font-semibold text-muted-foreground">
-              Employee
+              Empleado
             </span>
           </div>
           {weekDates.map((date, i) => {
@@ -99,7 +99,7 @@ export function ShiftGrid({
         {/* Employee rows */}
         {employees.length === 0 ? (
           <div className="flex h-32 items-center justify-center rounded-b-lg border border-t-0 text-xs text-muted-foreground">
-            No employees in this group
+            Sin empleados en este grupo
           </div>
         ) : (
           <div className="grid gap-px rounded-b-lg bg-border">

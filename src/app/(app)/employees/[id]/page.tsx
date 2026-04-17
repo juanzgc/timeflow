@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback, useMemo } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useSearchParams } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Table,
@@ -12,20 +12,47 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip";
 import { Input } from "@/components/ui/input";
-import { ArrowLeftIcon, PencilIcon } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import {
+  ArrowLeftIcon,
+  PencilIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon,
+  CalendarIcon,
+  ClockIcon,
+  ExternalLinkIcon,
+  RefreshCwIcon,
+  Trash2Icon,
+} from "lucide-react";
 import Link from "next/link";
 import {
   formatMins,
   formatMinsAsHours,
   formatTime,
+  formatTimestamp,
   formatDateMedium,
+  formatDateShort,
   getDayName,
   currentWeekMonday,
   currentWeekSunday,
+  formatCOP,
 } from "@/lib/format";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { PunchCorrectionModal } from "@/components/attendance/PunchCorrectionModal";
+import { EditEmployeeModal } from "@/components/employees/EditEmployeeModal";
 
-const DAY_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+const DAY_LABELS = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"];
+const DAY_LABELS_SHORT = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
 
 const GROUP_COLORS: Record<string, string> = {
   Kitchen: "var(--group-kitchen)",
@@ -34,17 +61,48 @@ const GROUP_COLORS: Record<string, string> = {
   Admin: "var(--group-admin)",
 };
 
-type Employee = {
-  id: number;
-  empCode: string;
-  cedula: string | null;
-  firstName: string;
-  lastName: string;
-  groupId: number | null;
-  groupName: string | null;
-  monthlySalary: string | null;
-  restDay: number;
-  isActive: boolean;
+type EmployeeData = {
+  employee: {
+    id: number;
+    empCode: string;
+    cedula: string | null;
+    firstName: string;
+    lastName: string;
+    groupId: number | null;
+    groupName: string | null;
+    monthlySalary: string | null;
+    restDay: number;
+    restDayName: string;
+    isActive: boolean;
+    biotimeId: number | null;
+    horaOrdinaria: number;
+    divisor: number;
+  };
+  stats: {
+    today: {
+      status: string;
+      totalWorkedMins?: number;
+      clockIn?: string | null;
+      clockOut?: string | null;
+      lateMinutes?: number;
+      isMissingPunch?: boolean;
+    };
+    period: {
+      periodId: number;
+      periodStart: string;
+      periodEnd: string;
+      totalExpectedMins: number;
+      totalWorkedMins: number;
+      overtimeMins: number;
+      status: string;
+    } | null;
+    compBalance: number;
+    punctuality: {
+      percent: number;
+      daysOnTime: number;
+      daysWorked: number;
+    };
+  };
 };
 
 type DailyRecord = {
@@ -64,9 +122,28 @@ type DailyRecord = {
   minsFestivoNight: number;
   excessHedMins: number;
   excessHenMins: number;
+  dailyLimitMins: number;
   dayType: string | null;
   isClockInManual: boolean;
   isClockOutManual: boolean;
+  isMissingPunch: boolean;
+  scheduledStart: string | null;
+  scheduledEnd: string | null;
+};
+
+type AttendanceData = {
+  records: DailyRecord[];
+  summary: {
+    daysWorked: number;
+    daysAbsent: number;
+    daysOff: number;
+    totalWorkedMins: number;
+    totalLateMins: number;
+    totalExcessMins: number;
+    totalNocturnoMins: number;
+    totalFestivoMins: number;
+    totalOrdinaryMins: number;
+  };
 };
 
 type CompTransaction = {
@@ -85,53 +162,140 @@ type Correction = {
   workDate: string;
   action: string;
   oldValue: string | null;
-  newValue: string;
+  newValue: string | null;
   reason: string;
   correctedBy: string;
   correctedAt: string;
 };
 
+type ScheduleData = {
+  weekStart: string;
+  groupName: string | null;
+  scheduleExists: boolean;
+  shifts: Array<{
+    dayOfWeek: number;
+    dayName: string;
+    shiftType: string;
+    shiftStart?: string;
+    shiftEnd?: string;
+    crossesMidnight?: boolean;
+    breakMinutes?: number;
+    isSplit?: boolean;
+    isRestDay?: boolean;
+    compDebitMins?: number;
+    hours: number;
+    segments?: Array<{
+      shiftStart: string;
+      shiftEnd: string;
+      crossesMidnight: boolean;
+      breakMinutes: number;
+    }>;
+  }>;
+  totalHours: number;
+  editUrl: string | null;
+};
+
+type GroupOption = { id: number; name: string };
+
+// ─── Helper: week navigation ─────────────────────────────────────────────
+
+function addDays(dateStr: string, n: number): string {
+  const d = new Date(dateStr + "T12:00:00");
+  d.setDate(d.getDate() + n);
+  return d.toISOString().slice(0, 10);
+}
+
+function getMondayOf(dateStr: string): string {
+  const d = new Date(dateStr + "T12:00:00");
+  const day = d.getDay(); // 0=Sun
+  const diff = day === 0 ? 6 : day - 1;
+  d.setDate(d.getDate() - diff);
+  return d.toISOString().slice(0, 10);
+}
+
+function getSundayOf(dateStr: string): string {
+  return addDays(getMondayOf(dateStr), 6);
+}
+
+// ─── Main Component ──────────────────────────────────────────────────────
+
 export default function EmployeeDetailPage() {
   const params = useParams();
+  const searchParams = useSearchParams();
   const id = params.id as string;
 
-  const [employee, setEmployee] = useState<Employee | null>(null);
-  const [attendance, setAttendance] = useState<DailyRecord[]>([]);
+  // Query param deep links
+  const tabParam = searchParams.get("tab");
+  const dateParam = searchParams.get("date");
+  const fixParam = searchParams.get("fix");
+
+  const [data, setData] = useState<EmployeeData | null>(null);
+  const [attendanceData, setAttendanceData] = useState<AttendanceData | null>(null);
   const [compTxs, setCompTxs] = useState<CompTransaction[]>([]);
   const [corrections, setCorrections] = useState<Correction[]>([]);
-  const [startDate, setStartDate] = useState(currentWeekMonday);
-  const [endDate, setEndDate] = useState(currentWeekSunday);
-  const [compBalance, setCompBalance] = useState(0);
+  const [scheduleData, setScheduleData] = useState<ScheduleData | null>(null);
+  const [groups, setGroups] = useState<GroupOption[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [attendanceLoading, setAttendanceLoading] = useState(false);
 
+  // Date range state
+  const initialMonday = dateParam ? getMondayOf(dateParam) : currentWeekMonday();
+  const initialSunday = dateParam ? getSundayOf(dateParam) : currentWeekSunday();
+  const [startDate, setStartDate] = useState(initialMonday);
+  const [endDate, setEndDate] = useState(initialSunday);
+
+  // Schedule week
+  const [scheduleWeek, setScheduleWeek] = useState(currentWeekMonday());
+
+  // Modal state
+  const [correctionModal, setCorrectionModal] = useState<{
+    isOpen: boolean;
+    record: DailyRecord | null;
+    action: "add_in" | "add_out" | "edit_in" | "edit_out" | "add_both";
+  }>({ isOpen: false, record: null, action: "add_both" });
+
+  const [editModalOpen, setEditModalOpen] = useState(false);
+
+  // Delete attendance state
+  const [deleteTarget, setDeleteTarget] = useState<DailyRecord | null>(null);
+  const [deleteReason, setDeleteReason] = useState("");
+  const [deleteError, setDeleteError] = useState("");
+  const [deleting, setDeleting] = useState(false);
+
+  // Active tab
+  const [activeTab, setActiveTab] = useState(tabParam || "attendance");
+
+  // Fetch employee profile + stats
   const fetchEmployee = useCallback(async () => {
     const res = await fetch(`/api/employees/${id}`);
     if (res.ok) {
-      const data = await res.json();
-      setEmployee(data);
+      const d = await res.json();
+      setData(d);
     }
+    setLoading(false);
   }, [id]);
 
+  // Fetch attendance
   const fetchAttendance = useCallback(async () => {
+    setAttendanceLoading(true);
     const res = await fetch(
       `/api/employees/${id}/attendance?startDate=${startDate}&endDate=${endDate}`,
     );
     if (res.ok) {
-      const data = await res.json();
-      setAttendance(data);
+      setAttendanceData(await res.json());
     }
+    setAttendanceLoading(false);
   }, [id, startDate, endDate]);
 
+  // Fetch comp transactions
   const fetchCompTxs = useCallback(async () => {
     const res = await fetch(`/api/employees/${id}/comp-transactions`);
     if (res.ok) {
-      const data = await res.json();
-      setCompTxs(data);
-      if (data.length > 0) {
-        setCompBalance(data[0].balanceAfter);
-      }
+      setCompTxs(await res.json());
     }
   }, [id]);
 
+  // Fetch corrections
   const fetchCorrections = useCallback(async () => {
     const res = await fetch(`/api/employees/${id}/corrections`);
     if (res.ok) {
@@ -139,38 +303,132 @@ export default function EmployeeDetailPage() {
     }
   }, [id]);
 
+  // Fetch schedule
+  const fetchSchedule = useCallback(async () => {
+    const res = await fetch(`/api/employees/${id}/schedule?weekStart=${scheduleWeek}`);
+    if (res.ok) {
+      setScheduleData(await res.json());
+    }
+  }, [id, scheduleWeek]);
+
+  // Fetch groups for edit modal
+  const fetchGroups = useCallback(async () => {
+    const res = await fetch("/api/groups");
+    if (res.ok) {
+      setGroups(await res.json());
+    }
+  }, []);
+
   useEffect(() => {
-    fetchEmployee(); // eslint-disable-line react-hooks/set-state-in-effect -- initial data fetch
+    fetchEmployee();
     fetchCompTxs();
     fetchCorrections();
-  }, [fetchEmployee, fetchCompTxs, fetchCorrections]);
+    fetchGroups();
+  }, [fetchEmployee, fetchCompTxs, fetchCorrections, fetchGroups]);
 
   useEffect(() => {
-    fetchAttendance(); // eslint-disable-line react-hooks/set-state-in-effect -- data fetch on date change
+    fetchAttendance();
   }, [fetchAttendance]);
 
-  // Derive period stats from attendance
-  const periodStats = useMemo(() => {
-    if (attendance.length === 0) return null;
-    const totalWorked = attendance.reduce((s, r) => s + r.totalWorkedMins, 0);
-    const totalLate = attendance.reduce((s, r) => s + r.lateMinutes, 0);
-    const daysPresent = attendance.filter((r) => r.totalWorkedMins > 0).length;
-    return {
-      totalWorkedMins: totalWorked,
-      totalExpectedMins: daysPresent * 480,
-      totalLateMins: totalLate,
-    };
-  }, [attendance]);
+  useEffect(() => {
+    fetchSchedule();
+  }, [fetchSchedule]);
 
-  if (!employee) {
+  // Auto-open correction modal from query params
+  useEffect(() => {
+    if (fixParam && dateParam && data && attendanceData) {
+      const record = attendanceData.records.find((r) => r.workDate === dateParam);
+      if (record || fixParam === "both") {
+        const actionMap: Record<string, "add_in" | "add_out" | "edit_in" | "edit_out" | "add_both"> = {
+          "clock-in": "add_in",
+          "clock-out": "add_out",
+          "edit-in": "edit_in",
+          "edit-out": "edit_out",
+          both: "add_both",
+        };
+        setCorrectionModal({
+          isOpen: true,
+          record: record || {
+            id: 0,
+            workDate: dateParam,
+            status: "absent",
+            clockIn: null,
+            clockOut: null,
+            effectiveIn: null,
+            effectiveOut: null,
+            totalWorkedMins: 0,
+            lateMinutes: 0,
+            earlyLeaveMins: 0,
+            minsOrdinaryDay: 0,
+            minsNocturno: 0,
+            minsFestivoDay: 0,
+            minsFestivoNight: 0,
+            excessHedMins: 0,
+            excessHenMins: 0,
+            dailyLimitMins: 0,
+            dayType: null,
+            isClockInManual: false,
+            isClockOutManual: false,
+            isMissingPunch: false,
+            scheduledStart: null,
+            scheduledEnd: null,
+          },
+          action: actionMap[fixParam] || "add_both",
+        });
+      }
+    }
+  }, [fixParam, dateParam, data, attendanceData]);
+
+  // Week navigation
+  const goToPrevWeek = () => {
+    setStartDate(addDays(startDate, -7));
+    setEndDate(addDays(endDate, -7));
+  };
+  const goToNextWeek = () => {
+    setStartDate(addDays(startDate, 7));
+    setEndDate(addDays(endDate, 7));
+  };
+  const goToThisWeek = () => {
+    setStartDate(currentWeekMonday());
+    setEndDate(currentWeekSunday());
+  };
+  const goToPeriod = () => {
+    if (data?.stats.period) {
+      setStartDate(data.stats.period.periodStart);
+      setEndDate(data.stats.period.periodEnd);
+    }
+  };
+
+  const handleCorrectionSaved = () => {
+    fetchAttendance();
+    fetchCorrections();
+    fetchEmployee();
+  };
+
+  const handleEditSaved = () => {
+    fetchEmployee();
+  };
+
+  const openCorrectionModal = (record: DailyRecord, action: "add_in" | "add_out" | "edit_in" | "edit_out" | "add_both") => {
+    setCorrectionModal({ isOpen: true, record, action });
+  };
+
+  if (loading || !data) {
     return (
-      <div className="flex h-64 items-center justify-center text-xs text-muted-foreground">
-        Loading...
+      <div className="space-y-4">
+        <div className="h-6 w-32 animate-pulse rounded bg-muted" />
+        <div className="h-20 animate-pulse rounded-xl bg-muted" />
+        <div className="grid gap-3 sm:grid-cols-4">
+          {[...Array(4)].map((_, i) => (
+            <div key={i} className="h-24 animate-pulse rounded-xl bg-muted" />
+          ))}
+        </div>
       </div>
     );
   }
 
-  const gc = employee.groupName ? GROUP_COLORS[employee.groupName] : undefined;
+  const { employee: emp, stats } = data;
+  const gc = emp.groupName ? GROUP_COLORS[emp.groupName] : undefined;
 
   return (
     <div className="space-y-5">
@@ -180,10 +438,10 @@ export default function EmployeeDetailPage() {
         className="inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground"
       >
         <ArrowLeftIcon className="size-3.5" />
-        Back to Employees
+        Volver a empleados
       </Link>
 
-      {/* Header */}
+      {/* ── Header ──────────────────────────────────────────────────────── */}
       <div className="flex items-start justify-between">
         <div className="flex items-center gap-4">
           <div
@@ -195,15 +453,15 @@ export default function EmployeeDetailPage() {
               color: gc ?? "var(--foreground)",
             }}
           >
-            {employee.firstName[0]}
-            {employee.lastName[0]}
+            {emp.firstName[0]}
+            {emp.lastName[0]}
           </div>
           <div>
             <h1 className="text-[22px] font-extrabold tracking-[-0.04em]">
-              {employee.firstName} {employee.lastName}
+              {emp.firstName} {emp.lastName}
             </h1>
             <p className="mt-0.5 text-[13px] text-muted-foreground">
-              {employee.groupName && (
+              {emp.groupName && (
                 <span
                   className="mr-2 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold"
                   style={{
@@ -213,235 +471,245 @@ export default function EmployeeDetailPage() {
                     color: gc ?? "var(--foreground)",
                   }}
                 >
-                  {employee.groupName}
+                  {emp.groupName}
                 </span>
               )}
-              #{employee.empCode}
-              {employee.cedula && ` · Cedula: ${employee.cedula}`}
+              #{emp.empCode}
+              {emp.cedula ? (
+                <> · Cédula: {emp.cedula}</>
+              ) : (
+                <span className="ml-1 text-warning-text">· Cédula: Sin asignar</span>
+              )}
             </p>
             <p className="mt-0.5 text-[12px] text-muted-foreground">
-              {employee.monthlySalary &&
-                `Salary: $${Number(employee.monthlySalary).toLocaleString("es-CO")}`}
-              {" · "}Rest Day: {DAY_LABELS[employee.restDay]}
+              {emp.monthlySalary ? (
+                <>Salario: {formatCOP(Number(emp.monthlySalary))}</>
+              ) : (
+                <span className="text-warning-text">Salario: Sin asignar</span>
+              )}
+              {" · "}Día de descanso: {emp.restDayName}
+              {emp.horaOrdinaria > 0 && (
+                <> · Hora Ordinaria: {formatCOP(emp.horaOrdinaria)} (divisor: {emp.divisor})</>
+              )}
             </p>
           </div>
         </div>
+        <Button variant="outline" size="sm" onClick={() => setEditModalOpen(true)}>
+          Editar empleado
+        </Button>
       </div>
 
-      {/* Stats Row */}
+      {/* ── Stat Cards ──────────────────────────────────────────────────── */}
       <div className="grid gap-3 sm:grid-cols-4">
-        <Card className="relative overflow-hidden">
+        {/* Today */}
+        <StatCard
+          title="Hoy"
+          gradient={getTodayGradient(stats.today.status)}
+        >
+          {stats.today.status === "on-time" && (
+            <>
+              <div className="text-2xl font-extrabold tracking-[-0.04em]">
+                {formatMins(stats.today.totalWorkedMins ?? 0)}
+              </div>
+              <StatusPill status="on-time" />
+            </>
+          )}
+          {stats.today.status === "late" && (
+            <>
+              <div className="text-2xl font-extrabold tracking-[-0.04em]">
+                {formatMins(stats.today.totalWorkedMins ?? 0)}
+              </div>
+              <span className="text-[11px] font-semibold text-warning-text">
+                Tarde ({stats.today.lateMinutes}m)
+              </span>
+            </>
+          )}
+          {stats.today.status === "absent" && <StatusPill status="absent" />}
+          {stats.today.status === "day-off" && (
+            <span className="text-sm text-muted-foreground">Descanso</span>
+          )}
+          {stats.today.status === "comp-day-off" && (
+            <span className="text-sm text-info-text">Día compensatorio</span>
+          )}
+          {stats.today.isMissingPunch && (
+            <span className="text-[11px] font-semibold text-warning-text">Marcación faltante</span>
+          )}
+          {stats.today.status === "not-scheduled" && !stats.today.isMissingPunch && (
+            <span className="text-sm text-muted-foreground">Sin horario</span>
+          )}
+          {stats.today.status === null && stats.today.clockIn && !stats.today.clockOut && (
+            <>
+              <div className="text-2xl font-extrabold tracking-[-0.04em]">
+                {formatMins(stats.today.totalWorkedMins ?? 0)} hasta ahora
+              </div>
+              <span className="text-[11px] font-semibold text-info-text">Trabajando</span>
+            </>
+          )}
+        </StatCard>
+
+        {/* Period */}
+        <StatCard
+          title="Período actual"
+          gradient="linear-gradient(90deg, var(--primary), transparent)"
+        >
+          {stats.period ? (
+            <>
+              <div className="text-2xl font-extrabold tracking-[-0.04em]">
+                {formatMins(stats.period.totalWorkedMins)} / {formatMins(stats.period.totalExpectedMins)}
+              </div>
+              {stats.period.overtimeMins > 0 ? (
+                <span className="text-[11px] font-semibold text-warning-text">
+                  +{formatMins(stats.period.overtimeMins)} HE
+                </span>
+              ) : stats.period.totalWorkedMins < stats.period.totalExpectedMins ? (
+                <span className="text-[11px] font-semibold text-info-text">
+                  -{formatMins(stats.period.totalExpectedMins - stats.period.totalWorkedMins)}
+                </span>
+              ) : null}
+            </>
+          ) : (
+            <span className="text-sm text-muted-foreground">Sin período activo</span>
+          )}
+        </StatCard>
+
+        {/* Comp Balance */}
+        <StatCard
+          title="Saldo compensatorio"
+          gradient={`linear-gradient(90deg, ${stats.compBalance >= 0 ? "var(--success)" : "var(--danger)"}, transparent)`}
+        >
           <div
-            className="absolute top-0 right-0 left-0 h-0.5 opacity-60"
+            className="text-2xl font-extrabold tracking-[-0.04em]"
             style={{
-              background: `linear-gradient(90deg, ${compBalance >= 0 ? "var(--success)" : "var(--danger)"}, transparent)`,
+              color:
+                stats.compBalance > 0
+                  ? "var(--success-text)"
+                  : stats.compBalance < 0
+                    ? "var(--danger-text)"
+                    : undefined,
             }}
-          />
-          <CardHeader className="pb-2">
-            <CardTitle className="text-xs font-medium text-muted-foreground">
-              Comp Balance
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div
-              className="text-2xl font-extrabold tracking-[-0.04em]"
-              style={{
-                color:
-                  compBalance > 0
-                    ? "var(--success-text)"
-                    : compBalance < 0
-                      ? "var(--danger-text)"
-                      : undefined,
-              }}
-            >
-              {formatMinsAsHours(compBalance)}
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="relative overflow-hidden">
+          >
+            {formatMinsAsHours(stats.compBalance)}
+          </div>
+        </StatCard>
+
+        {/* Punctuality */}
+        <StatCard
+          title="Puntualidad"
+          gradient={`linear-gradient(90deg, ${stats.punctuality.percent >= 90 ? "var(--success)" : stats.punctuality.percent >= 70 ? "var(--warning)" : "var(--danger)"}, transparent)`}
+        >
           <div
-            className="absolute top-0 right-0 left-0 h-0.5 opacity-60"
-            style={{ background: "linear-gradient(90deg, var(--primary), transparent)" }}
-          />
-          <CardHeader className="pb-2">
-            <CardTitle className="text-xs font-medium text-muted-foreground">
-              Period Hours
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-extrabold tracking-[-0.04em]">
-              {periodStats
-                ? formatMins(periodStats.totalWorkedMins)
-                : "--"}
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="relative overflow-hidden">
-          <div
-            className="absolute top-0 right-0 left-0 h-0.5 opacity-60"
-            style={{ background: "linear-gradient(90deg, var(--info), transparent)" }}
-          />
-          <CardHeader className="pb-2">
-            <CardTitle className="text-xs font-medium text-muted-foreground">
-              Avg Daily
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-extrabold tracking-[-0.04em]">
-              {periodStats && attendance.length > 0
-                ? formatMins(
-                    Math.round(
-                      periodStats.totalWorkedMins /
-                        Math.max(
-                          attendance.filter((r) => r.totalWorkedMins > 0).length,
-                          1,
-                        ),
-                    ),
-                  )
-                : "--"}
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="relative overflow-hidden">
-          <div
-            className="absolute top-0 right-0 left-0 h-0.5 opacity-60"
-            style={{ background: "linear-gradient(90deg, var(--warning), transparent)" }}
-          />
-          <CardHeader className="pb-2">
-            <CardTitle className="text-xs font-medium text-muted-foreground">
-              Late This Period
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-extrabold tracking-[-0.04em]">
-              {periodStats ? formatMins(periodStats.totalLateMins) : "--"}
-            </div>
-          </CardContent>
-        </Card>
+            className="text-2xl font-extrabold tracking-[-0.04em]"
+            style={{
+              color:
+                stats.punctuality.percent >= 90
+                  ? "var(--success-text)"
+                  : stats.punctuality.percent >= 70
+                    ? "var(--warning-text)"
+                    : "var(--danger-text)",
+            }}
+          >
+            {stats.punctuality.percent}% a tiempo
+          </div>
+          <span className="text-[10px] text-muted-foreground">
+            {stats.punctuality.daysOnTime} de {stats.punctuality.daysWorked} días este período
+          </span>
+        </StatCard>
       </div>
 
-      {/* Tabs */}
-      <Tabs defaultValue="attendance">
+      {/* ── Tabs ────────────────────────────────────────────────────────── */}
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList variant="line">
-          <TabsTrigger value="attendance">Attendance History</TabsTrigger>
-          <TabsTrigger value="comp">Comp Transactions</TabsTrigger>
-          <TabsTrigger value="corrections">Corrections Log</TabsTrigger>
+          <TabsTrigger value="attendance">Historial de marcaciones</TabsTrigger>
+          <TabsTrigger value="schedule">Horario</TabsTrigger>
+          <TabsTrigger value="comp">Transacciones compensatorias</TabsTrigger>
+          <TabsTrigger value="corrections">Registro de correcciones</TabsTrigger>
         </TabsList>
 
-        {/* Attendance History Tab */}
+        {/* ── Attendance Tab ───────────────────────────────────────────── */}
         <TabsContent value="attendance">
-          <div className="mt-4 flex items-end gap-3">
-            <div>
-              <label className="mb-1 block text-[11px] font-medium text-muted-foreground">
-                Start
-              </label>
+          {/* Date range controls */}
+          <div className="mt-4 flex flex-wrap items-end gap-3">
+            <div className="flex items-center gap-1">
+              <Button variant="ghost" size="icon-sm" onClick={goToPrevWeek}>
+                <ChevronLeftIcon className="size-4" />
+              </Button>
+              <span className="text-sm font-medium">
+                {formatDateShort(startDate)} – {formatDateShort(endDate)}
+              </span>
+              <Button variant="ghost" size="icon-sm" onClick={goToNextWeek}>
+                <ChevronRightIcon className="size-4" />
+              </Button>
+            </div>
+            <div className="flex items-center gap-1.5">
               <Input
                 type="date"
                 value={startDate}
                 onChange={(e) => setStartDate(e.target.value)}
-                className="h-9 w-40 text-xs"
+                className="h-7 w-36 text-xs"
               />
-            </div>
-            <div>
-              <label className="mb-1 block text-[11px] font-medium text-muted-foreground">
-                End
-              </label>
+              <span className="text-xs text-muted-foreground">a</span>
               <Input
                 type="date"
                 value={endDate}
                 onChange={(e) => setEndDate(e.target.value)}
-                className="h-9 w-40 text-xs"
+                className="h-7 w-36 text-xs"
               />
+            </div>
+            <div className="flex gap-1">
+              <Button variant="outline" size="xs" onClick={goToThisWeek}>
+                Esta semana
+              </Button>
+              {stats.period && (
+                <Button variant="outline" size="xs" onClick={goToPeriod}>
+                  Período
+                </Button>
+              )}
             </div>
           </div>
 
+          {/* Attendance Table */}
           <Card className="mt-4">
             <CardContent className="p-0">
-              {attendance.length === 0 ? (
+              {attendanceLoading ? (
                 <div className="flex h-24 items-center justify-center text-xs text-muted-foreground">
-                  No attendance records
+                  Cargando marcaciones...
+                </div>
+              ) : !attendanceData || attendanceData.records.length === 0 ? (
+                <div className="flex h-24 items-center justify-center text-xs text-muted-foreground">
+                  Sin registros de marcación para este rango
                 </div>
               ) : (
                 <div className="overflow-x-auto">
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead>Date</TableHead>
-                        <TableHead>Status</TableHead>
-                        <TableHead>Clock In</TableHead>
-                        <TableHead>Clock Out</TableHead>
-                        <TableHead>Eff. In</TableHead>
-                        <TableHead>Eff. Out</TableHead>
-                        <TableHead>Worked</TableHead>
-                        <TableHead>Late</TableHead>
-                        <TableHead>Ordinary</TableHead>
-                        <TableHead>Nocturno</TableHead>
-                        <TableHead>Festivo D</TableHead>
-                        <TableHead>Festivo N</TableHead>
-                        <TableHead>Excess D</TableHead>
-                        <TableHead>Excess N</TableHead>
+                        <TableHead className="w-[120px]">Fecha</TableHead>
+                        <TableHead className="w-[90px]">Estado</TableHead>
+                        <TableHead className="w-[100px]">Entrada</TableHead>
+                        <TableHead className="w-[100px]">Salida</TableHead>
+                        <TableHead className="w-[100px]">Efec. In</TableHead>
+                        <TableHead className="w-[100px]">Efec. Out</TableHead>
+                        <TableHead className="w-[70px]">Trabajado</TableHead>
+                        <TableHead className="w-[60px]">Tardanza</TableHead>
+                        <TableHead className="w-[60px]">Ordinario</TableHead>
+                        <TableHead className="w-[60px]">Nocturno</TableHead>
+                        <TableHead className="w-[60px]">Festivo D</TableHead>
+                        <TableHead className="w-[60px]">Festivo N</TableHead>
+                        <TableHead className="w-[60px]">Exceso D</TableHead>
+                        <TableHead className="w-[60px]">Exceso N</TableHead>
+                        <TableHead className="w-[80px]">Acciones</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {attendance.map((r) => (
-                        <TableRow
+                      {attendanceData.records.map((r) => (
+                        <AttendanceRow
                           key={r.workDate}
-                          className={r.status === "absent" ? "bg-danger-bg/30" : ""}
-                        >
-                          <TableCell className="text-xs font-medium">
-                            <span className="flex items-center gap-1.5">
-                              {r.dayType === "holiday" && (
-                                <span className="size-1.5 rounded-full bg-danger" />
-                              )}
-                              {getDayName(r.workDate)} {r.workDate.slice(5)}
-                            </span>
-                          </TableCell>
-                          <TableCell>
-                            <StatusPill status={r.status} />
-                          </TableCell>
-                          <TableCell className="font-mono text-xs">
-                            <span className="inline-flex items-center gap-1">
-                              {r.clockIn ? formatTime(r.clockIn) : "—"}
-                              {r.isClockInManual && (
-                                <PencilIcon className="size-2.5 text-warning" />
-                              )}
-                            </span>
-                          </TableCell>
-                          <TableCell className="font-mono text-xs">
-                            <span className="inline-flex items-center gap-1">
-                              {r.clockOut ? formatTime(r.clockOut) : "—"}
-                              {r.isClockOutManual && (
-                                <PencilIcon className="size-2.5 text-warning" />
-                              )}
-                            </span>
-                          </TableCell>
-                          <TableCell className="font-mono text-xs text-muted-foreground">
-                            {r.effectiveIn ? formatTime(r.effectiveIn) : "—"}
-                          </TableCell>
-                          <TableCell className="font-mono text-xs text-muted-foreground">
-                            {r.effectiveOut ? formatTime(r.effectiveOut) : "—"}
-                          </TableCell>
-                          <TableCell className="font-mono text-xs font-semibold">
-                            {formatMins(r.totalWorkedMins)}
-                          </TableCell>
-                          <TableCell className="text-xs">
-                            {r.lateMinutes > 0 ? (
-                              <span className="text-warning-text">
-                                {r.lateMinutes}m
-                              </span>
-                            ) : (
-                              "—"
-                            )}
-                          </TableCell>
-                          <TableCell className="font-mono text-xs">
-                            {formatMins(r.minsOrdinaryDay)}
-                          </TableCell>
-                          <MinBadge value={r.minsNocturno} type="nocturno" />
-                          <MinBadge value={r.minsFestivoDay} type="festivo" />
-                          <MinBadge value={r.minsFestivoNight} type="festivo" />
-                          <MinBadge value={r.excessHedMins} type="warning" />
-                          <MinBadge value={r.excessHenMins} type="nocturno" />
-                        </TableRow>
+                          record={r}
+                          employeeName={`${emp.firstName} ${emp.lastName}`}
+                          highlightDate={dateParam}
+                          onOpenCorrection={openCorrectionModal}
+                          onDelete={setDeleteTarget}
+                        />
                       ))}
                     </TableBody>
                   </Table>
@@ -449,88 +717,243 @@ export default function EmployeeDetailPage() {
               )}
             </CardContent>
           </Card>
+
+          {/* Summary Row */}
+          {attendanceData && attendanceData.summary && (
+            <div className="mt-3 rounded-lg border bg-muted/30 px-4 py-2.5 text-xs text-muted-foreground">
+              <span className="font-semibold text-foreground">Totales del período:</span>{" "}
+              {attendanceData.summary.daysWorked} días trabajados
+              {" · "}{formatMins(attendanceData.summary.totalWorkedMins)} total
+              {attendanceData.summary.totalLateMins > 0 && (
+                <>{" · "}<span className="text-warning-text">{formatMins(attendanceData.summary.totalLateMins)} tardanza</span></>
+              )}
+              {attendanceData.summary.totalExcessMins > 0 && (
+                <>{" · "}{formatMins(attendanceData.summary.totalExcessMins)} exceso</>
+              )}
+              <br />
+              Nocturno: {formatMins(attendanceData.summary.totalNocturnoMins)}
+              {" · "}Festivo: {formatMins(attendanceData.summary.totalFestivoMins)}
+              {" · "}Ordinario: {formatMins(attendanceData.summary.totalOrdinaryMins)}
+            </div>
+          )}
         </TabsContent>
 
-        {/* Comp Transactions Tab */}
-        <TabsContent value="comp">
+        {/* ── Schedule Tab ─────────────────────────────────────────────── */}
+        <TabsContent value="schedule">
+          <div className="mt-4 flex items-center gap-2">
+            <Button variant="ghost" size="icon-sm" onClick={() => setScheduleWeek(addDays(scheduleWeek, -7))}>
+              <ChevronLeftIcon className="size-4" />
+            </Button>
+            <span className="text-sm font-medium">
+              Semana del {formatDateShort(scheduleWeek)} – {formatDateShort(addDays(scheduleWeek, 6))}
+            </span>
+            <Button variant="ghost" size="icon-sm" onClick={() => setScheduleWeek(addDays(scheduleWeek, 7))}>
+              <ChevronRightIcon className="size-4" />
+            </Button>
+          </div>
+
           <Card className="mt-4">
             <CardContent className="p-0">
-              {compTxs.length === 0 ? (
+              {!scheduleData ? (
                 <div className="flex h-24 items-center justify-center text-xs text-muted-foreground">
-                  No comp transactions
+                  Cargando horario...
+                </div>
+              ) : !scheduleData.scheduleExists ? (
+                <div className="flex h-24 flex-col items-center justify-center gap-2 text-xs text-muted-foreground">
+                  <span>Sin horario para esta semana</span>
+                  {scheduleData.editUrl && (
+                    <Link href={scheduleData.editUrl} className="text-primary hover:underline">
+                      Crear horario →
+                    </Link>
+                  )}
                 </div>
               ) : (
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Date</TableHead>
-                      <TableHead>Type</TableHead>
-                      <TableHead>Minutes</TableHead>
-                      <TableHead>Balance</TableHead>
-                      <TableHead>Note</TableHead>
-                      <TableHead>By</TableHead>
+                      <TableHead>Día</TableHead>
+                      <TableHead>Turno</TableHead>
+                      <TableHead>Horas</TableHead>
+                      <TableHead>Tipo</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {compTxs.map((tx) => (
-                      <TableRow key={tx.id}>
+                    {scheduleData.shifts.map((s) => (
+                      <TableRow
+                        key={s.dayOfWeek}
+                        className={
+                          s.shiftType === "day_off"
+                            ? "text-muted-foreground"
+                            : s.shiftType === "comp_day_off"
+                              ? "text-info-text"
+                              : ""
+                        }
+                      >
                         <TableCell className="text-xs font-medium">
-                          {formatDateMedium(tx.transactionDate)}
+                          {DAY_LABELS_SHORT[s.dayOfWeek]} {addDays(scheduleWeek, s.dayOfWeek).slice(5)}
                         </TableCell>
-                        <TableCell>
-                          <CompTypeBadge type={tx.type} />
+                        <TableCell className="font-mono text-xs">
+                          {s.shiftType === "regular" ? (
+                            s.isSplit && s.segments ? (
+                              <div className="flex flex-col gap-0.5">
+                                {s.segments.map((seg, i) => (
+                                  <span key={i}>{formatShiftTime(seg.shiftStart)} – {formatShiftTime(seg.shiftEnd)}</span>
+                                ))}
+                              </div>
+                            ) : (
+                              <span className={s.crossesMidnight ? "text-nocturno-text" : ""}>
+                                {formatShiftTime(s.shiftStart!)} – {formatShiftTime(s.shiftEnd!)}
+                              </span>
+                            )
+                          ) : (
+                            "—"
+                          )}
                         </TableCell>
-                        <TableCell className="font-mono text-xs font-semibold">
-                          {tx.minutes > 0 ? "+" : ""}
-                          {tx.minutes}
+                        <TableCell className="font-mono text-xs">
+                          {s.hours > 0 ? `${s.hours}h` : "—"}
                         </TableCell>
-                        <TableCell
-                          className="font-mono text-xs font-bold"
-                          style={{
-                            color:
-                              tx.balanceAfter > 0
-                                ? "var(--success-text)"
-                                : tx.balanceAfter < 0
-                                  ? "var(--danger-text)"
-                                  : undefined,
-                          }}
-                        >
-                          {formatMinsAsHours(tx.balanceAfter)}
-                        </TableCell>
-                        <TableCell className="max-w-48 truncate text-xs text-muted-foreground">
-                          {tx.note ?? "—"}
-                        </TableCell>
-                        <TableCell className="text-xs text-muted-foreground">
-                          {tx.createdBy}
+                        <TableCell className="text-xs">
+                          {s.shiftType === "regular" && "Regular"}
+                          {s.shiftType === "day_off" && (
+                            <span>Descanso{s.isRestDay ? ` (${emp.restDayName})` : ""}</span>
+                          )}
+                          {s.shiftType === "comp_day_off" && (
+                            <span className="inline-flex items-center gap-1 rounded-full bg-info-bg px-2 py-0.5 text-[10px] font-semibold text-info-text">
+                              COMP {s.compDebitMins ? `(-${formatMins(s.compDebitMins)})` : ""}
+                            </span>
+                          )}
+                          {s.shiftType === "none" && "—"}
                         </TableCell>
                       </TableRow>
                     ))}
+                    {/* Total row */}
+                    <TableRow className="border-t-2 font-semibold">
+                      <TableCell className="text-xs" />
+                      <TableCell className="text-right text-xs">Total</TableCell>
+                      <TableCell className="font-mono text-xs">{scheduleData.totalHours}h</TableCell>
+                      <TableCell className="text-xs">
+                        {scheduleData.shifts.filter((s) => s.shiftType === "regular").length} regulares
+                      </TableCell>
+                    </TableRow>
                   </TableBody>
                 </Table>
               )}
             </CardContent>
           </Card>
+
+          {scheduleData?.editUrl && (
+            <div className="mt-3">
+              <Link
+                href={scheduleData.editUrl}
+                className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
+              >
+                <ExternalLinkIcon className="size-3" />
+                Editar en el editor de horarios
+              </Link>
+            </div>
+          )}
         </TabsContent>
 
-        {/* Corrections Log Tab */}
+        {/* ── Comp Transactions Tab ────────────────────────────────────── */}
+        <TabsContent value="comp">
+          <Card className="mt-4">
+            <CardContent className="p-0">
+              {compTxs.length === 0 ? (
+                <div className="flex h-24 items-center justify-center text-xs text-muted-foreground">
+                  Sin transacciones compensatorias
+                </div>
+              ) : (
+                <>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Fecha</TableHead>
+                        <TableHead>Tipo</TableHead>
+                        <TableHead>Minutos</TableHead>
+                        <TableHead>Saldo</TableHead>
+                        <TableHead>Nota</TableHead>
+                        <TableHead>Por</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {compTxs.map((tx) => (
+                        <TableRow key={tx.id}>
+                          <TableCell className="text-xs font-medium">
+                            {formatDateMedium(tx.transactionDate)}
+                          </TableCell>
+                          <TableCell>
+                            <CompTypeBadge type={tx.type} />
+                          </TableCell>
+                          <TableCell className="font-mono text-xs font-semibold">
+                            {tx.minutes > 0 ? "+" : ""}
+                            {formatMins(tx.minutes)}
+                          </TableCell>
+                          <TableCell
+                            className="font-mono text-xs font-bold"
+                            style={{
+                              color:
+                                tx.balanceAfter > 0
+                                  ? "var(--success-text)"
+                                  : tx.balanceAfter < 0
+                                    ? "var(--danger-text)"
+                                    : undefined,
+                            }}
+                          >
+                            {formatMinsAsHours(tx.balanceAfter)}
+                          </TableCell>
+                          <TableCell className="max-w-48 truncate text-xs text-muted-foreground">
+                            {tx.note ?? "—"}
+                          </TableCell>
+                          <TableCell className="text-xs text-muted-foreground">
+                            {tx.createdBy}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                  <div className="border-t px-4 py-2">
+                    <span className="text-xs font-semibold">
+                      Saldo actual:{" "}
+                      <span
+                        className="font-mono"
+                        style={{
+                          color:
+                            stats.compBalance > 0
+                              ? "var(--success-text)"
+                              : stats.compBalance < 0
+                                ? "var(--danger-text)"
+                                : undefined,
+                        }}
+                      >
+                        {formatMinsAsHours(stats.compBalance)}
+                      </span>
+                    </span>
+                  </div>
+                </>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* ── Corrections Log Tab ──────────────────────────────────────── */}
         <TabsContent value="corrections">
           <Card className="mt-4">
             <CardContent className="p-0">
               {corrections.length === 0 ? (
                 <div className="flex h-24 items-center justify-center text-xs text-muted-foreground">
-                  No corrections recorded
+                  Sin correcciones registradas
                 </div>
               ) : (
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Date</TableHead>
-                      <TableHead>Action</TableHead>
-                      <TableHead>Old Value</TableHead>
-                      <TableHead>New Value</TableHead>
-                      <TableHead>Reason</TableHead>
-                      <TableHead>By</TableHead>
-                      <TableHead>When</TableHead>
+                      <TableHead>Fecha</TableHead>
+                      <TableHead>Acción</TableHead>
+                      <TableHead>Valor anterior</TableHead>
+                      <TableHead>Valor nuevo</TableHead>
+                      <TableHead>Razón</TableHead>
+                      <TableHead>Por</TableHead>
+                      <TableHead>Cuándo</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -539,14 +962,14 @@ export default function EmployeeDetailPage() {
                         <TableCell className="text-xs font-medium">
                           {formatDateMedium(c.workDate)}
                         </TableCell>
-                        <TableCell className="text-xs font-semibold capitalize">
-                          {c.action.replace(/_/g, " ")}
+                        <TableCell>
+                          <CorrectionActionBadge action={c.action} />
                         </TableCell>
                         <TableCell className="font-mono text-xs text-muted-foreground">
                           {c.oldValue ? formatTime(c.oldValue) : "—"}
                         </TableCell>
                         <TableCell className="font-mono text-xs">
-                          {formatTime(c.newValue)}
+                          {c.newValue ? formatTime(c.newValue) : "—"}
                         </TableCell>
                         <TableCell className="max-w-48 truncate text-xs text-muted-foreground">
                           {c.reason}
@@ -555,7 +978,10 @@ export default function EmployeeDetailPage() {
                           {c.correctedBy}
                         </TableCell>
                         <TableCell className="text-xs text-muted-foreground">
-                          {formatDateMedium(c.correctedAt)}
+                          <div>{formatDateMedium(c.correctedAt)}</div>
+                          <div className="font-mono text-[10px] text-muted-foreground/70">
+                            {formatTimestamp(c.correctedAt)}
+                          </div>
                         </TableCell>
                       </TableRow>
                     ))}
@@ -566,18 +992,380 @@ export default function EmployeeDetailPage() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* ── Quick Actions ──────────────────────────────────────────────── */}
+      <div className="flex flex-wrap gap-3 border-t pt-4">
+        {stats.period && (
+          <Link href={`/payroll/${stats.period.periodId}`}>
+            <Button variant="outline" size="sm">
+              <ExternalLinkIcon className="size-3.5" />
+              Ver en nómina
+            </Button>
+          </Link>
+        )}
+        <Link href={`/schedules/${currentWeekMonday()}/${emp.groupId || 1}`}>
+          <Button variant="outline" size="sm">
+            <CalendarIcon className="size-3.5" />
+            Ver horario
+          </Button>
+        </Link>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={async () => {
+            await fetch("/api/biotime/sync", { method: "POST" });
+            fetchEmployee();
+            fetchAttendance();
+          }}
+        >
+          <RefreshCwIcon className="size-3.5" />
+          Sincronizar desde BioTime
+        </Button>
+      </div>
+
+      {/* ── Modals ─────────────────────────────────────────────────────── */}
+      {correctionModal.isOpen && correctionModal.record && (
+        <PunchCorrectionModal
+          isOpen={correctionModal.isOpen}
+          onClose={() => setCorrectionModal({ isOpen: false, record: null, action: "add_both" })}
+          onSaved={handleCorrectionSaved}
+          employeeId={emp.id}
+          employeeName={`${emp.firstName} ${emp.lastName}`}
+          workDate={correctionModal.record.workDate}
+          existingClockIn={correctionModal.record.clockIn}
+          existingClockOut={correctionModal.record.clockOut}
+          scheduledStart={correctionModal.record.scheduledStart}
+          scheduledEnd={correctionModal.record.scheduledEnd}
+          action={correctionModal.action}
+        />
+      )}
+
+      {editModalOpen && (
+        <EditEmployeeModal
+          isOpen={editModalOpen}
+          onClose={() => setEditModalOpen(false)}
+          onSaved={handleEditSaved}
+          employee={emp}
+          groups={groups}
+        />
+      )}
+
+      {/* Delete Attendance Dialog */}
+      <Dialog
+        open={!!deleteTarget}
+        onOpenChange={(open) => {
+          if (!open) {
+            setDeleteTarget(null);
+            setDeleteReason("");
+            setDeleteError("");
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Eliminar registro de marcación</DialogTitle>
+            <DialogDescription>
+              ¿Eliminar registro de marcación del{" "}
+              <strong>{deleteTarget ? formatDateMedium(deleteTarget.workDate) : ""}</strong>
+              ? Esto elimina todos los datos de marcación del día y no se puede deshacer.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div>
+              <Label className="text-xs">Razón (obligatoria)</Label>
+              <Input
+                value={deleteReason}
+                onChange={(e) => setDeleteReason(e.target.value)}
+                placeholder="¿Por qué se debe eliminar este registro?"
+                className="mt-1 h-8 text-sm"
+                autoFocus
+              />
+              <p className="mt-1 text-[10px] text-muted-foreground">
+                Sincronización errónea · Registro fantasma · Entrada duplicada
+              </p>
+            </div>
+
+            {deleteError && (
+              <div className="rounded-md bg-danger-bg p-2 text-xs text-danger-text">
+                {deleteError}
+              </div>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setDeleteTarget(null);
+                setDeleteReason("");
+                setDeleteError("");
+              }}
+              disabled={deleting}
+            >
+              Cancelar
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={async () => {
+                setDeleteError("");
+                if (deleteReason.length < 5) {
+                  setDeleteError("La razón debe tener al menos 5 caracteres");
+                  return;
+                }
+                setDeleting(true);
+                try {
+                  const res = await fetch(`/api/employees/${id}/attendance`, {
+                    method: "DELETE",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                      workDate: deleteTarget!.workDate,
+                      reason: deleteReason,
+                    }),
+                  });
+                  if (!res.ok) {
+                    const data = await res.json();
+                    setDeleteError(data.error || "Error al eliminar");
+                    return;
+                  }
+                  setDeleteTarget(null);
+                  setDeleteReason("");
+                  setDeleteError("");
+                  handleCorrectionSaved();
+                } catch {
+                  setDeleteError("Error de red");
+                } finally {
+                  setDeleting(false);
+                }
+              }}
+              disabled={deleting}
+            >
+              {deleting ? "Eliminando..." : "Eliminar registro"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
 
-function StatusPill({ status }: { status: string | null }) {
+// ─── Attendance Row Component ─────────────────────────────────────────────
+
+function AttendanceRow({
+  record: r,
+  employeeName,
+  highlightDate,
+  onOpenCorrection,
+  onDelete,
+}: {
+  record: DailyRecord;
+  employeeName: string;
+  highlightDate: string | null;
+  onOpenCorrection: (record: DailyRecord, action: "add_in" | "add_out" | "edit_in" | "edit_out" | "add_both") => void;
+  onDelete: (record: DailyRecord) => void;
+}) {
+  const isHighlighted = highlightDate === r.workDate;
+  const isDayOff = r.status === "day-off" || r.status === "comp-day-off";
+  const isAbsent = r.status === "absent";
+  const isMissing = r.isMissingPunch || r.status === null;
+  let rowClass = "";
+  if (isHighlighted) rowClass = "animate-pulse bg-primary/5";
+  else if (isAbsent) rowClass = "bg-danger-bg/30";
+  else if (isDayOff) rowClass = "bg-muted/30";
+  else if (r.status === "comp-day-off") rowClass = "bg-info-bg/30";
+  else if (isMissing) rowClass = "border-l-[3px] border-l-warning bg-warning-bg/20";
+  else if (r.status === "unscheduled") rowClass = "bg-yellow-50/50";
+
+  return (
+    <TableRow className={`${rowClass} [&>td]:py-3`}>
+      <TableCell className="text-xs font-medium">
+        <span className="flex items-center gap-1.5">
+          {r.dayType === "holiday" && (
+            <span className="size-1.5 rounded-full bg-danger" />
+          )}
+          {getDayName(r.workDate)}, {r.workDate.slice(5)}
+        </span>
+      </TableCell>
+      <TableCell>
+        <StatusPill status={r.status} isMissing={r.isMissingPunch} />
+      </TableCell>
+      <TableCell className="relative font-mono text-xs">
+        {isDayOff ? (
+          "—"
+        ) : (
+          <>
+            <span className="group/cell inline-flex items-center gap-1">
+              {r.clockIn ? formatTime(r.clockIn) : "—"}
+              {r.isClockInManual && <PencilIcon className="size-2.5 text-warning" />}
+              {!isDayOff && (
+                <button
+                  onClick={() => onOpenCorrection(r, r.clockIn ? "edit_in" : (!r.clockOut ? "add_both" : "add_in"))}
+                  className="invisible size-4 rounded hover:bg-muted group-hover/cell:visible"
+                >
+                  <PencilIcon className="size-3 text-muted-foreground" />
+                </button>
+              )}
+            </span>
+            {r.scheduledStart && (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger className="absolute bottom-1 left-2 cursor-default text-[10px] leading-tight text-muted-foreground/70">
+                    {formatShiftTime(r.scheduledStart)}
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom">Inicio programado</TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            )}
+          </>
+        )}
+      </TableCell>
+      <TableCell className="relative font-mono text-xs">
+        {isDayOff ? (
+          "—"
+        ) : (
+          <>
+            <span className="group/cell inline-flex items-center gap-1">
+              {r.clockOut ? formatTime(r.clockOut) : "—"}
+              {r.isClockOutManual && <PencilIcon className="size-2.5 text-warning" />}
+              {!isDayOff && (
+                <button
+                  onClick={() => onOpenCorrection(r, r.clockOut ? "edit_out" : (!r.clockIn ? "add_both" : "add_out"))}
+                  className="invisible size-4 rounded hover:bg-muted group-hover/cell:visible"
+                >
+                  <PencilIcon className="size-3 text-muted-foreground" />
+                </button>
+              )}
+            </span>
+            {r.scheduledEnd && (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger className="absolute bottom-1 left-2 cursor-default text-[10px] leading-tight text-muted-foreground/70">
+                    {formatShiftTime(r.scheduledEnd)}
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom">Fin programado</TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            )}
+          </>
+        )}
+      </TableCell>
+      <TableCell className="font-mono text-xs text-muted-foreground">
+        {isDayOff ? "—" : r.effectiveIn ? formatTime(r.effectiveIn) : "—"}
+      </TableCell>
+      <TableCell className="font-mono text-xs text-muted-foreground">
+        {isDayOff ? "—" : r.effectiveOut ? formatTime(r.effectiveOut) : "—"}
+      </TableCell>
+      <TableCell className="font-mono text-xs font-semibold">
+        {isDayOff ? "—" : formatMins(r.totalWorkedMins)}
+      </TableCell>
+      <TableCell className="text-xs">
+        {r.lateMinutes > 0 ? (
+          <span className="rounded-full bg-warning-bg px-1.5 py-0.5 text-[10px] font-semibold text-warning-text">
+            {r.lateMinutes}m
+          </span>
+        ) : isDayOff ? (
+          "—"
+        ) : (
+          "—"
+        )}
+      </TableCell>
+      <TableCell className="font-mono text-xs">
+        {isDayOff ? "—" : formatMins(r.minsOrdinaryDay)}
+      </TableCell>
+      <MinBadge value={isDayOff ? 0 : r.minsNocturno} type="nocturno" />
+      <MinBadge value={isDayOff ? 0 : r.minsFestivoDay} type="festivo" />
+      <MinBadge value={isDayOff ? 0 : r.minsFestivoNight} type="festivo" />
+      <MinBadge value={isDayOff ? 0 : r.excessHedMins} type="warning" />
+      <MinBadge value={isDayOff ? 0 : r.excessHenMins} type="nocturno" />
+      <TableCell className="text-xs">
+        <span className="group/cell inline-flex items-center gap-1">
+          {isMissing && !r.clockOut && r.clockIn && (
+            <Button
+              variant="outline"
+              size="xs"
+              className="text-[10px]"
+              onClick={() => onOpenCorrection(r, "add_out")}
+            >
+              Corregir salida
+            </Button>
+          )}
+          {isMissing && !r.clockIn && r.clockOut && (
+            <Button
+              variant="outline"
+              size="xs"
+              className="text-[10px]"
+              onClick={() => onOpenCorrection(r, "add_in")}
+            >
+              Corregir entrada
+            </Button>
+          )}
+          {isAbsent && (
+            <Button
+              variant="outline"
+              size="xs"
+              className="text-[10px]"
+              onClick={() => onOpenCorrection(r, "add_both")}
+            >
+              Sí asistió
+            </Button>
+          )}
+          {!isDayOff && (
+            <button
+              onClick={() => onDelete(r)}
+              className="invisible size-5 rounded p-0.5 hover:bg-danger-bg group-hover/cell:visible"
+              title="Eliminar registro de marcación"
+            >
+              <Trash2Icon className="size-3.5 text-danger-text" />
+            </button>
+          )}
+        </span>
+      </TableCell>
+    </TableRow>
+  );
+}
+
+// ─── Sub-components ──────────────────────────────────────────────────────
+
+function StatCard({
+  title,
+  gradient,
+  children,
+}: {
+  title: string;
+  gradient: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <Card className="relative overflow-hidden">
+      <div
+        className="absolute top-0 right-0 left-0 h-0.5 opacity-60"
+        style={{ background: gradient }}
+      />
+      <CardHeader className="pb-2">
+        <CardTitle className="text-xs font-medium text-muted-foreground">{title}</CardTitle>
+      </CardHeader>
+      <CardContent className="flex flex-col gap-1">{children}</CardContent>
+    </Card>
+  );
+}
+
+function StatusPill({ status, isMissing }: { status: string | null; isMissing?: boolean }) {
+  if (isMissing) {
+    return (
+      <span className="inline-block rounded-full bg-warning-bg px-2 py-0.5 text-[10px] font-semibold text-warning-text">
+        Marcación faltante
+      </span>
+    );
+  }
   if (!status) return <span className="text-xs text-muted-foreground">—</span>;
   const map: Record<string, { color: string; bg: string; label: string }> = {
-    "on-time": { color: "var(--success-text)", bg: "var(--success-bg)", label: "On time" },
-    late: { color: "var(--warning-text)", bg: "var(--warning-bg)", label: "Late" },
-    absent: { color: "var(--danger-text)", bg: "var(--danger-bg)", label: "Absent" },
-    "day-off": { color: "var(--muted-foreground)", bg: "var(--secondary)", label: "Day off" },
+    "on-time": { color: "var(--success-text)", bg: "var(--success-bg)", label: "A tiempo" },
+    late: { color: "var(--warning-text)", bg: "var(--warning-bg)", label: "Tarde" },
+    absent: { color: "var(--danger-text)", bg: "var(--danger-bg)", label: "Ausente" },
+    "day-off": { color: "var(--muted-foreground)", bg: "var(--secondary)", label: "Descanso" },
     "comp-day-off": { color: "var(--info-text)", bg: "var(--info-bg)", label: "Comp" },
+    unscheduled: { color: "var(--warning-text)", bg: "var(--warning-bg)", label: "Sin horario" },
+    missing_punch: { color: "var(--warning-text)", bg: "var(--warning-bg)", label: "Faltante" },
   };
   const c = map[status] ?? { color: "var(--muted-foreground)", bg: "var(--secondary)", label: status };
   return (
@@ -592,10 +1380,10 @@ function StatusPill({ status }: { status: string | null }) {
 
 function CompTypeBadge({ type }: { type: string }) {
   const map: Record<string, { color: string; bg: string; label: string }> = {
-    ot_banked: { color: "var(--success-text)", bg: "var(--success-bg)", label: "OT Banked" },
-    comp_day_taken: { color: "var(--info-text)", bg: "var(--info-bg)", label: "Comp Day" },
-    time_owed: { color: "var(--danger-text)", bg: "var(--danger-bg)", label: "Time Owed" },
-    owed_offset: { color: "var(--warning-text)", bg: "var(--warning-bg)", label: "Offset" },
+    ot_banked: { color: "var(--success-text)", bg: "var(--success-bg)", label: "HE Acumuladas" },
+    comp_day_taken: { color: "var(--info-text)", bg: "var(--info-bg)", label: "Día comp." },
+    time_owed: { color: "var(--danger-text)", bg: "var(--danger-bg)", label: "Tiempo adeudado" },
+    owed_offset: { color: "var(--warning-text)", bg: "var(--warning-bg)", label: "Compensación" },
   };
   const c = map[type] ?? { color: "var(--muted-foreground)", bg: "var(--secondary)", label: type };
   return (
@@ -604,6 +1392,31 @@ function CompTypeBadge({ type }: { type: string }) {
       style={{ color: c.color, backgroundColor: c.bg }}
     >
       {c.label}
+    </span>
+  );
+}
+
+function CorrectionActionBadge({ action }: { action: string }) {
+  const isEdit = action.startsWith("edit");
+  const isDelete = action.startsWith("delete");
+  const label = action.replace(/_/g, " ");
+  return (
+    <span
+      className="inline-block rounded-full px-2 py-0.5 text-[10px] font-semibold capitalize"
+      style={{
+        color: isDelete
+          ? "var(--danger-text)"
+          : isEdit
+            ? "var(--warning-text)"
+            : "var(--info-text)",
+        backgroundColor: isDelete
+          ? "var(--danger-bg)"
+          : isEdit
+            ? "var(--warning-bg)"
+            : "var(--info-bg)",
+      }}
+    >
+      {label}
     </span>
   );
 }
@@ -635,4 +1448,24 @@ function MinBadge({
       )}
     </TableCell>
   );
+}
+
+function getTodayGradient(status: string): string {
+  switch (status) {
+    case "on-time":
+      return "linear-gradient(90deg, var(--success), transparent)";
+    case "late":
+      return "linear-gradient(90deg, var(--warning), transparent)";
+    case "absent":
+      return "linear-gradient(90deg, var(--danger), transparent)";
+    default:
+      return "linear-gradient(90deg, var(--muted-foreground), transparent)";
+  }
+}
+
+function formatShiftTime(t: string): string {
+  const [h, m] = t.split(":").map(Number);
+  const ampm = h >= 12 ? "PM" : "AM";
+  const h12 = h === 0 ? 12 : h > 12 ? h - 12 : h;
+  return `${h12}:${String(m).padStart(2, "0")} ${ampm}`;
 }

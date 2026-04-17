@@ -27,12 +27,12 @@ import {
 } from "@/components/ui/sidebar";
 
 const navItems = [
-  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboardIcon },
-  { href: "/attendance", label: "Attendance", icon: ClockIcon },
-  { href: "/schedules", label: "Schedules", icon: CalendarDaysIcon },
-  { href: "/employees", label: "Employees", icon: UsersIcon },
-  { href: "/payroll", label: "Payroll", icon: BanknoteIcon },
-  { href: "/settings", label: "Settings", icon: SettingsIcon },
+  { href: "/dashboard", label: "Panel", icon: LayoutDashboardIcon },
+  { href: "/attendance", label: "Marcaciones", icon: ClockIcon },
+  { href: "/schedules", label: "Programación", icon: CalendarDaysIcon },
+  { href: "/employees", label: "Empleados", icon: UsersIcon },
+  { href: "/payroll", label: "Nómina", icon: BanknoteIcon },
+  { href: "/settings", label: "Configuración", icon: SettingsIcon },
 ];
 
 export function AppSidebar() {
@@ -53,7 +53,7 @@ export function AppSidebar() {
               TimeFlow
             </div>
             <div className="text-[10.5px] tracking-[0.01em] text-sidebar-foreground/50">
-              Attendance Manager
+              Gestor de Marcaciones
             </div>
           </div>
         </Link>
@@ -62,7 +62,7 @@ export function AppSidebar() {
       <SidebarContent>
         <SidebarGroup>
           <SidebarGroupLabel className="text-[10px] font-semibold uppercase tracking-[0.1em] opacity-60">
-            Navigation
+            Navegación
           </SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
@@ -94,10 +94,10 @@ export function AppSidebar() {
           <SidebarMenuItem>
             <SidebarMenuButton
               onClick={() => signOut({ callbackUrl: "/login" })}
-              tooltip="Sign out"
+              tooltip="Cerrar sesión"
             >
               <LogOutIcon className="size-[18px]" strokeWidth={1.7} />
-              <span>Sign out</span>
+              <span>Cerrar sesión</span>
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>

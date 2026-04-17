@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { and, eq, desc, lt, sql } from "drizzle-orm";
+import { and, eq, desc, lt, gt, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import {
   employees,
@@ -9,7 +9,7 @@ import {
   settings,
 } from "@/drizzle/schema";
 import { auth } from "@/auth";
-import { todayColombiaISO } from "@/lib/timezone";
+import { todayColombiaISO, colHours } from "@/lib/timezone";
 
 export async function GET() {
   const session = await auth();
@@ -20,6 +20,21 @@ export async function GET() {
   const today = new Date();
   const todayStr = todayColombiaISO();
 
+  // Find the latest finalized/exported payroll period end date to use as cutoff.
+  // Missing punches before this date are irrelevant — payroll already ran.
+  const HARD_CUTOFF = "2026-04-12";
+  const [latestFinalizedRow] = await db
+    .select({ periodEnd: payrollPeriods.periodEnd })
+    .from(payrollPeriods)
+    .where(
+      sql`${payrollPeriods.status} IN ('finalized', 'exported')`,
+    )
+    .orderBy(desc(payrollPeriods.periodEnd))
+    .limit(1);
+
+  const payrollCutoff = latestFinalizedRow?.periodEnd ?? null;
+  const cutoffDate = payrollCutoff && payrollCutoff > HARD_CUTOFF ? payrollCutoff : HARD_CUTOFF;
+
   const [
     missingPunches,
     overduePeriods,
@@ -29,19 +44,36 @@ export async function GET() {
     misssingCedulaCount,
     lastSyncRow,
   ] = await Promise.all([
-    // Missing punches for today/yesterday
-    db
-      .select({
-        employeeId: employees.id,
-        firstName: employees.firstName,
-        lastName: employees.lastName,
-        workDate: dailyAttendance.workDate,
-        clockIn: dailyAttendance.clockIn,
-        clockOut: dailyAttendance.clockOut,
-      })
-      .from(dailyAttendance)
-      .innerJoin(employees, eq(dailyAttendance.employeeId, employees.id))
-      .where(eq(dailyAttendance.isMissingPunch, true)),
+    // Missing punches — only after cutoff and not for today (day isn't over
+    // until 6 AM next day, matching the business-day boundary).
+    // Before 6 AM Colombia time: also exclude yesterday (its business day is
+    // still open).
+    (() => {
+      const hour = colHours(today);
+      // Latest date whose business day is still open
+      const openDate = hour < 6
+        ? new Date(today.getTime() - 24 * 60 * 60 * 1000)  // yesterday
+        : today;
+      const openDateStr = openDate.toLocaleDateString("en-CA", { timeZone: "America/Bogota" });
+      return db
+        .select({
+          employeeId: employees.id,
+          firstName: employees.firstName,
+          lastName: employees.lastName,
+          workDate: dailyAttendance.workDate,
+          clockIn: dailyAttendance.clockIn,
+          clockOut: dailyAttendance.clockOut,
+        })
+        .from(dailyAttendance)
+        .innerJoin(employees, eq(dailyAttendance.employeeId, employees.id))
+        .where(
+          and(
+            eq(dailyAttendance.isMissingPunch, true),
+            gt(dailyAttendance.workDate, cutoffDate),
+            lt(dailyAttendance.workDate, openDateStr),
+          ),
+        );
+    })(),
 
     // Overdue periods (end date passed, still draft)
     db

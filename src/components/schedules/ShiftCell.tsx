@@ -54,7 +54,7 @@ export function ShiftCell({
         className={`flex h-full min-h-[52px] w-full items-center justify-center rounded-md transition-colors hover:bg-muted/50 ${holidayBg}`}
       >
         <span className="text-[11px] font-medium text-muted-foreground/60">
-          OFF
+          DESC
         </span>
       </button>
     );

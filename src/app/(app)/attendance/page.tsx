@@ -19,6 +19,7 @@ import {
 } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { ChevronDownIcon, ChevronRightIcon, PencilIcon } from "lucide-react";
+import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip";
 import {
   formatMins,
   formatTime,
@@ -70,6 +71,8 @@ type DailyRecord = {
   isClockInManual: boolean;
   isClockOutManual: boolean;
   isMissingPunch: boolean;
+  scheduledStart: string | null;
+  scheduledEnd: string | null;
 };
 
 type Group = { id: number; name: string };
@@ -131,10 +134,10 @@ export default function AttendancePage() {
       {/* Header */}
       <div>
         <h1 className="text-[22px] font-extrabold tracking-[-0.04em]">
-          Attendance Log
+          Registro de marcaciones
         </h1>
         <p className="mt-0.5 text-[13px] text-muted-foreground">
-          Daily attendance records with punch details and recargo classification.
+          Registros diarios de marcación con detalles de entrada/salida y clasificación de recargos.
         </p>
       </div>
 
@@ -142,7 +145,7 @@ export default function AttendancePage() {
       <div className="flex flex-wrap items-end gap-3">
         <div>
           <label className="mb-1 block text-[11px] font-medium text-muted-foreground">
-            Start
+            Inicio
           </label>
           <Input
             type="date"
@@ -153,7 +156,7 @@ export default function AttendancePage() {
         </div>
         <div>
           <label className="mb-1 block text-[11px] font-medium text-muted-foreground">
-            End
+            Fin
           </label>
           <Input
             type="date"
@@ -164,14 +167,14 @@ export default function AttendancePage() {
         </div>
         <div>
           <label className="mb-1 block text-[11px] font-medium text-muted-foreground">
-            Group
+            Grupo
           </label>
           <Select value={groupId} onValueChange={(v) => setGroupId(v ?? "all")}>
             <SelectTrigger className="h-9 w-40 text-xs">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All Groups</SelectItem>
+              <SelectItem value="all">Todos los grupos</SelectItem>
               {groups.map((g) => (
                 <SelectItem key={g.id} value={String(g.id)}>
                   {g.name}
@@ -186,17 +189,17 @@ export default function AttendancePage() {
       <div className="grid gap-3 sm:grid-cols-3">
         {[
           {
-            label: "Total Hours Worked",
+            label: "Total horas trabajadas",
             value: summary ? formatMins(summary.totalWorkedMins) : "--",
             accent: "var(--primary)",
           },
           {
-            label: "Total Late Minutes",
+            label: "Total minutos tarde",
             value: summary ? formatMins(summary.totalLateMins) : "--",
             accent: "var(--warning)",
           },
           {
-            label: "Total Excess Hours",
+            label: "Total horas extra",
             value: summary ? formatMins(summary.totalExcessMins) : "--",
             accent: "var(--nocturno)",
           },
@@ -226,7 +229,7 @@ export default function AttendancePage() {
       <Card>
         <CardHeader className="border-b px-5 py-3.5">
           <CardTitle className="text-sm font-bold tracking-[-0.01em]">
-            Employee Attendance
+            Marcaciones por empleado
             <span className="ml-2 text-xs font-normal text-muted-foreground">
               ({employees.length})
             </span>
@@ -235,23 +238,23 @@ export default function AttendancePage() {
         <CardContent className="p-0">
           {loading ? (
             <div className="flex h-32 items-center justify-center text-xs text-muted-foreground">
-              Loading...
+              Cargando...
             </div>
           ) : employees.length === 0 ? (
             <div className="flex h-32 items-center justify-center text-xs text-muted-foreground">
-              No attendance records for this date range
+              Sin registros de marcación para este rango de fechas
             </div>
           ) : (
             <Table>
               <TableHeader>
                 <TableRow>
                   <TableHead className="w-8" />
-                  <TableHead>Employee</TableHead>
-                  <TableHead className="w-20">Days</TableHead>
-                  <TableHead className="w-24">Total Hours</TableHead>
-                  <TableHead className="w-20">Avg/Day</TableHead>
-                  <TableHead className="w-20">Late</TableHead>
-                  <TableHead className="w-20">Excess</TableHead>
+                  <TableHead>Empleado</TableHead>
+                  <TableHead className="w-20">Días</TableHead>
+                  <TableHead className="w-24">Total horas</TableHead>
+                  <TableHead className="w-20">Prom/Día</TableHead>
+                  <TableHead className="w-20">Tardanza</TableHead>
+                  <TableHead className="w-20">Exceso</TableHead>
                   <TableHead className="w-20">Nocturno</TableHead>
                   <TableHead className="w-20">Festivo</TableHead>
                 </TableRow>
@@ -388,7 +391,7 @@ function DailyBreakdown({ records }: { records: DailyRecord[] }) {
   if (records.length === 0) {
     return (
       <div className="flex h-16 items-center justify-center text-xs text-muted-foreground">
-        Loading daily records...
+        Cargando registros diarios...
       </div>
     );
   }
@@ -399,24 +402,24 @@ function DailyBreakdown({ records }: { records: DailyRecord[] }) {
         <thead>
           <tr className="border-b border-foreground/5">
             {[
-              "Date",
-              "Status",
-              "Clock In",
-              "Clock Out",
-              "Eff. In",
-              "Eff. Out",
-              "Worked",
-              "Late",
-              "Ordinary",
+              "Fecha",
+              "Estado",
+              "Entrada",
+              "Salida",
+              "Efec. In",
+              "Efec. Out",
+              "Trabajado",
+              "Tardanza",
+              "Ordinario",
               "Nocturno",
               "Festivo D",
               "Festivo N",
-              "Excess D",
-              "Excess N",
+              "Exceso D",
+              "Exceso N",
             ].map((h) => (
               <th
                 key={h}
-                className="px-3 py-2 text-left text-[10px] font-semibold uppercase tracking-wider text-muted-foreground"
+                className="px-3 py-3 text-left text-[10px] font-semibold uppercase tracking-wider text-muted-foreground"
               >
                 {h}
               </th>
@@ -429,7 +432,7 @@ function DailyBreakdown({ records }: { records: DailyRecord[] }) {
               key={r.workDate}
               className={`border-b border-foreground/5 ${r.status === "absent" ? "bg-danger-bg/30" : ""}`}
             >
-              <td className="px-3 py-2 font-medium">
+              <td className="px-3 py-3 font-medium">
                 <span className="flex items-center gap-1.5">
                   {r.dayType === "holiday" && (
                     <span className="size-1.5 rounded-full bg-danger" />
@@ -437,43 +440,63 @@ function DailyBreakdown({ records }: { records: DailyRecord[] }) {
                   {getDayName(r.workDate)} {r.workDate.slice(5)}
                 </span>
               </td>
-              <td className="px-3 py-2">
+              <td className="px-3 py-3">
                 <DayStatusBadge status={r.status} />
               </td>
-              <td className="px-3 py-2 font-mono">
+              <td className="relative px-3 py-3 font-mono">
                 <span className="inline-flex items-center gap-1">
                   {r.clockIn ? formatTime(r.clockIn) : "—"}
                   {r.isClockInManual && (
                     <PencilIcon className="size-2.5 text-warning" />
                   )}
                 </span>
+                {r.scheduledStart && (
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger className="absolute bottom-1 left-3 cursor-default text-[10px] leading-tight text-muted-foreground/70">
+                        {formatShiftTime(r.scheduledStart)}
+                      </TooltipTrigger>
+                      <TooltipContent side="bottom">Inicio programado</TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                )}
               </td>
-              <td className="px-3 py-2 font-mono">
+              <td className="relative px-3 py-3 font-mono">
                 <span className="inline-flex items-center gap-1">
                   {r.clockOut ? formatTime(r.clockOut) : "—"}
                   {r.isClockOutManual && (
                     <PencilIcon className="size-2.5 text-warning" />
                   )}
                 </span>
+                {r.scheduledEnd && (
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger className="absolute bottom-1 left-3 cursor-default text-[10px] leading-tight text-muted-foreground/70">
+                        {formatShiftTime(r.scheduledEnd)}
+                      </TooltipTrigger>
+                      <TooltipContent side="bottom">Fin programado</TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                )}
               </td>
-              <td className="px-3 py-2 font-mono text-muted-foreground">
+              <td className="px-3 py-3 font-mono text-muted-foreground">
                 {r.effectiveIn ? formatTime(r.effectiveIn) : "—"}
               </td>
-              <td className="px-3 py-2 font-mono text-muted-foreground">
+              <td className="px-3 py-3 font-mono text-muted-foreground">
                 {r.effectiveOut ? formatTime(r.effectiveOut) : "—"}
               </td>
-              <td className="px-3 py-2 font-mono font-semibold">
+              <td className="px-3 py-3 font-mono font-semibold">
                 {formatMins(r.totalWorkedMins)}
               </td>
-              <td className="px-3 py-2">
+              <td className="px-3 py-3">
                 {r.lateMinutes > 0 ? (
                   <span className="text-warning-text">{r.lateMinutes}m</span>
                 ) : (
                   "—"
                 )}
               </td>
-              <td className="px-3 py-2 font-mono">{formatMins(r.minsOrdinaryDay)}</td>
-              <td className="px-3 py-2">
+              <td className="px-3 py-3 font-mono">{formatMins(r.minsOrdinaryDay)}</td>
+              <td className="px-3 py-3">
                 {r.minsNocturno > 0 ? (
                   <span className="rounded bg-nocturno-bg px-1.5 py-0.5 font-mono text-nocturno-text">
                     {formatMins(r.minsNocturno)}
@@ -482,7 +505,7 @@ function DailyBreakdown({ records }: { records: DailyRecord[] }) {
                   "—"
                 )}
               </td>
-              <td className="px-3 py-2">
+              <td className="px-3 py-3">
                 {r.minsFestivoDay > 0 ? (
                   <span className="rounded bg-danger-bg px-1.5 py-0.5 font-mono text-danger-text">
                     {formatMins(r.minsFestivoDay)}
@@ -491,7 +514,7 @@ function DailyBreakdown({ records }: { records: DailyRecord[] }) {
                   "—"
                 )}
               </td>
-              <td className="px-3 py-2">
+              <td className="px-3 py-3">
                 {r.minsFestivoNight > 0 ? (
                   <span className="rounded bg-danger-bg px-1.5 py-0.5 font-mono text-danger-text">
                     {formatMins(r.minsFestivoNight)}
@@ -500,7 +523,7 @@ function DailyBreakdown({ records }: { records: DailyRecord[] }) {
                   "—"
                 )}
               </td>
-              <td className="px-3 py-2">
+              <td className="px-3 py-3">
                 {r.excessHedMins > 0 ? (
                   <span className="rounded bg-warning-bg px-1.5 py-0.5 font-mono text-warning-text">
                     {formatMins(r.excessHedMins)}
@@ -509,7 +532,7 @@ function DailyBreakdown({ records }: { records: DailyRecord[] }) {
                   "—"
                 )}
               </td>
-              <td className="px-3 py-2">
+              <td className="px-3 py-3">
                 {r.excessHenMins > 0 ? (
                   <span className="rounded bg-nocturno-bg px-1.5 py-0.5 font-mono text-nocturno-text">
                     {formatMins(r.excessHenMins)}
@@ -529,10 +552,10 @@ function DailyBreakdown({ records }: { records: DailyRecord[] }) {
 function DayStatusBadge({ status }: { status: string | null }) {
   if (!status) return <span className="text-muted-foreground">—</span>;
   const map: Record<string, { color: string; bg: string; label: string }> = {
-    "on-time": { color: "var(--success-text)", bg: "var(--success-bg)", label: "On time" },
-    late: { color: "var(--warning-text)", bg: "var(--warning-bg)", label: "Late" },
-    absent: { color: "var(--danger-text)", bg: "var(--danger-bg)", label: "Absent" },
-    "day-off": { color: "var(--muted-foreground)", bg: "var(--secondary)", label: "Day off" },
+    "on-time": { color: "var(--success-text)", bg: "var(--success-bg)", label: "A tiempo" },
+    late: { color: "var(--warning-text)", bg: "var(--warning-bg)", label: "Tarde" },
+    absent: { color: "var(--danger-text)", bg: "var(--danger-bg)", label: "Ausente" },
+    "day-off": { color: "var(--muted-foreground)", bg: "var(--secondary)", label: "Descanso" },
     "comp-day-off": { color: "var(--info-text)", bg: "var(--info-bg)", label: "Comp" },
   };
   const c = map[status] ?? { color: "var(--muted-foreground)", bg: "var(--secondary)", label: status };
@@ -544,4 +567,11 @@ function DayStatusBadge({ status }: { status: string | null }) {
       {c.label}
     </span>
   );
+}
+
+function formatShiftTime(t: string): string {
+  const [h, m] = t.split(":").map(Number);
+  const ampm = h >= 12 ? "PM" : "AM";
+  const h12 = h === 0 ? 12 : h > 12 ? h - 12 : h;
+  return `${h12}:${String(m).padStart(2, "0")} ${ampm}`;
 }
