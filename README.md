@@ -71,10 +71,10 @@ CRON_SECRET=<generate a random secret>
 In the web service settings:
 
 - **Build command:** `pnpm install && pnpm db:migrate && pnpm build`
-- **Start command:** `pnpm start`
+- **Start command:** `pnpm start` (runs `node .next/standalone/server.js`)
 - **Port:** Auto-detected (3000)
 
-The `db:migrate` in the build step ensures migrations run on every deploy before the app starts.
+The standalone output bundles only the dependencies actually used, producing a ~150MB deployment instead of shipping the full `node_modules`. The `db:migrate` in the build step ensures migrations run on every deploy before the app starts.
 
 ### 4. Cron Service (BioTime Sync)
 
