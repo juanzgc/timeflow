@@ -3,17 +3,15 @@ import { eq } from "drizzle-orm";
 import { hash } from "bcryptjs";
 import { db } from "@/lib/db";
 import { adminUsers } from "@/drizzle/schema";
-import { auth } from "@/auth";
+import { requireSuperadmin } from "@/lib/auth-helpers";
 
-/** PUT /api/admin-users/[id] — update admin user */
+/** PUT /api/admin-users/[id] — update admin user (superadmin only) */
 export async function PUT(
   request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  const session = await auth();
-  if (!session?.user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const { response } = await requireSuperadmin();
+  if (response) return response;
 
   const { id: idStr } = await params;
   const id = parseInt(idStr, 10);

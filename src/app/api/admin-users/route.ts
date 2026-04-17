@@ -2,14 +2,12 @@ import { NextResponse } from "next/server";
 import { hash } from "bcryptjs";
 import { db } from "@/lib/db";
 import { adminUsers } from "@/drizzle/schema";
-import { auth } from "@/auth";
+import { requireAuth, requireSuperadmin } from "@/lib/auth-helpers";
 
 /** GET /api/admin-users — list all admin users */
 export async function GET() {
-  const session = await auth();
-  if (!session?.user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const { response } = await requireAuth();
+  if (response) return response;
 
   const users = await db
     .select({
@@ -27,12 +25,10 @@ export async function GET() {
   return NextResponse.json(users);
 }
 
-/** POST /api/admin-users — create admin user */
+/** POST /api/admin-users — create admin user (superadmin only) */
 export async function POST(request: Request) {
-  const session = await auth();
-  if (!session?.user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const { response } = await requireSuperadmin();
+  if (response) return response;
 
   const body = await request.json();
   const { username, email, password, displayName, role = "admin" } = body;

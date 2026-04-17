@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import { useSession } from "next-auth/react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Dialog,
@@ -38,6 +39,10 @@ import {
   PencilIcon,
   CheckIcon,
   UsersIcon,
+  KeyIcon,
+  LockIcon,
+  EyeIcon,
+  EyeOffIcon,
 } from "lucide-react";
 
 type Group = {
@@ -57,6 +62,9 @@ type AdminUser = {
 };
 
 export default function SettingsPage() {
+  const { data: session } = useSession();
+  const isSuperadmin = session?.user?.role === "superadmin";
+
   // ── Groups ──────────────────────────────────────────────
   const [groupsList, setGroupsList] = useState<Group[]>([]);
   const [loadingGroups, setLoadingGroups] = useState(true);
@@ -90,6 +98,14 @@ export default function SettingsPage() {
   const [newDisplayName, setNewDisplayName] = useState("");
   const [newRole, setNewRole] = useState("admin");
   const [creatingUser, setCreatingUser] = useState(false);
+
+  // ── Password change ──────────────────────────────────
+  const [passwordChangeUser, setPasswordChangeUser] =
+    useState<AdminUser | null>(null);
+  const [pwdChangeValue, setPwdChangeValue] = useState("");
+  const [pwdChangeShow, setPwdChangeShow] = useState(false);
+  const [pwdChangeSaving, setPwdChangeSaving] = useState(false);
+  const [pwdChangeError, setPwdChangeError] = useState("");
 
   // ── Fetch all data ────────────────────────────────────
   const fetchGroups = useCallback(async () => {
@@ -272,6 +288,35 @@ export default function SettingsPage() {
     fetchUsers();
   };
 
+  const openPasswordChange = (user: AdminUser) => {
+    setPasswordChangeUser(user);
+    setPwdChangeValue("");
+    setPwdChangeShow(false);
+    setPwdChangeError("");
+  };
+
+  const submitPasswordChange = async () => {
+    if (!passwordChangeUser || !pwdChangeValue) return;
+    if (pwdChangeValue.length < 6) {
+      setPwdChangeError("La contraseña debe tener al menos 6 caracteres.");
+      return;
+    }
+    setPwdChangeSaving(true);
+    setPwdChangeError("");
+    const res = await fetch(`/api/admin-users/${passwordChangeUser.id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ password: pwdChangeValue }),
+    });
+    setPwdChangeSaving(false);
+    if (res.ok) {
+      setPasswordChangeUser(null);
+      setPwdChangeValue("");
+    } else {
+      setPwdChangeError("No se pudo actualizar la contraseña.");
+    }
+  };
+
   if (loadingSettings) {
     return (
       <div className="flex h-64 items-center justify-center text-xs text-muted-foreground">
@@ -446,8 +491,14 @@ export default function SettingsPage() {
       {/* ── Daily Limits & Overtime ───────────────────────── */}
       <Card>
         <CardHeader className="border-b px-5 py-3.5">
-          <CardTitle className="text-sm font-bold tracking-[-0.01em]">
+          <CardTitle className="flex items-center justify-between text-sm font-bold tracking-[-0.01em]">
             Límites diarios y horas extra
+            {!isSuperadmin && (
+              <span className="inline-flex items-center gap-1 rounded-full bg-secondary px-2.5 py-0.5 text-[11px] font-medium text-muted-foreground">
+                <LockIcon className="size-3" />
+                Solo superadmin
+              </span>
+            )}
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4 px-5 py-4">
@@ -463,6 +514,7 @@ export default function SettingsPage() {
                   updateSetting("daily_limit_sun_thu", e.target.value)
                 }
                 className="w-32 text-sm"
+                disabled={!isSuperadmin}
               />
               <p className="mt-0.5 text-[10px] text-muted-foreground">
                 Por defecto: 420 (7h)
@@ -479,6 +531,7 @@ export default function SettingsPage() {
                   updateSetting("daily_limit_fri_sat", e.target.value)
                 }
                 className="w-32 text-sm"
+                disabled={!isSuperadmin}
               />
               <p className="mt-0.5 text-[10px] text-muted-foreground">
                 Por defecto: 480 (8h)
@@ -488,7 +541,7 @@ export default function SettingsPage() {
           <Button
             size="sm"
             onClick={saveDailyLimits}
-            disabled={savingSettings}
+            disabled={savingSettings || !isSuperadmin}
             className="gap-1.5"
           >
             <SaveIcon className="size-3.5" />
@@ -500,8 +553,14 @@ export default function SettingsPage() {
       {/* ── Siigo Export Configuration ────────────────────── */}
       <Card>
         <CardHeader className="border-b px-5 py-3.5">
-          <CardTitle className="text-sm font-bold tracking-[-0.01em]">
+          <CardTitle className="flex items-center justify-between text-sm font-bold tracking-[-0.01em]">
             Configuración de exportación Siigo
+            {!isSuperadmin && (
+              <span className="inline-flex items-center gap-1 rounded-full bg-secondary px-2.5 py-0.5 text-[11px] font-medium text-muted-foreground">
+                <LockIcon className="size-3" />
+                Solo superadmin
+              </span>
+            )}
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4 px-5 py-4">
@@ -520,6 +579,7 @@ export default function SettingsPage() {
                     v ?? "cedula",
                   )
                 }
+                disabled={!isSuperadmin}
               >
                 <SelectTrigger className="w-48">
                   <SelectValue />
@@ -544,6 +604,7 @@ export default function SettingsPage() {
                     )
                   }
                   className="accent-primary"
+                  disabled={!isSuperadmin}
                 />
                 Incluir columna de valor calculado
               </label>
@@ -591,6 +652,7 @@ export default function SettingsPage() {
                     onChange={(e) => updateSetting(c.key, e.target.value)}
                     className="w-24 font-mono text-sm"
                     placeholder={c.default}
+                    disabled={!isSuperadmin}
                   />
                 </div>
               ))}
@@ -600,7 +662,7 @@ export default function SettingsPage() {
           <Button
             size="sm"
             onClick={saveSiigoConfig}
-            disabled={savingSettings}
+            disabled={savingSettings || !isSuperadmin}
             className="gap-1.5"
           >
             <SaveIcon className="size-3.5" />
@@ -724,7 +786,16 @@ export default function SettingsPage() {
       <Card>
         <CardHeader className="border-b px-5 py-3.5">
           <CardTitle className="flex items-center justify-between text-sm font-bold tracking-[-0.01em]">
-            Usuarios administradores
+            <span className="flex items-center gap-2">
+              Usuarios administradores
+              {!isSuperadmin && (
+                <span className="inline-flex items-center gap-1 rounded-full bg-secondary px-2.5 py-0.5 text-[11px] font-medium text-muted-foreground">
+                  <LockIcon className="size-3" />
+                  Solo superadmin
+                </span>
+              )}
+            </span>
+            {isSuperadmin && (
             <Dialog
               open={createUserOpen}
               onOpenChange={setCreateUserOpen}
@@ -816,6 +887,7 @@ export default function SettingsPage() {
                 </DialogFooter>
               </DialogContent>
             </Dialog>
+            )}
           </CardTitle>
         </CardHeader>
         <CardContent className="p-0">
@@ -831,7 +903,9 @@ export default function SettingsPage() {
                   <TableHead>Nombre a mostrar</TableHead>
                   <TableHead>Rol</TableHead>
                   <TableHead className="w-20">Estado</TableHead>
-                  <TableHead className="w-24">Acciones</TableHead>
+                  {isSuperadmin && (
+                    <TableHead className="w-56">Acciones</TableHead>
+                  )}
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -875,28 +949,41 @@ export default function SettingsPage() {
                         {u.isActive ? "Activo" : "Deshabilitado"}
                       </span>
                     </TableCell>
-                    <TableCell>
-                      {u.isActive ? (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="gap-1 text-xs text-danger hover:text-danger"
-                          onClick={() => disableUser(u.id)}
-                        >
-                          <ShieldOffIcon className="size-3" />
-                          Deshabilitar
-                        </Button>
-                      ) : (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="gap-1 text-xs"
-                          onClick={() => enableUser(u.id)}
-                        >
-                          Habilitar
-                        </Button>
-                      )}
-                    </TableCell>
+                    {isSuperadmin && (
+                      <TableCell>
+                        <div className="flex items-center gap-1">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="gap-1 text-xs"
+                            onClick={() => openPasswordChange(u)}
+                          >
+                            <KeyIcon className="size-3" />
+                            Contraseña
+                          </Button>
+                          {u.isActive ? (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="gap-1 text-xs text-danger hover:text-danger"
+                              onClick={() => disableUser(u.id)}
+                            >
+                              <ShieldOffIcon className="size-3" />
+                              Deshabilitar
+                            </Button>
+                          ) : (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="gap-1 text-xs"
+                              onClick={() => enableUser(u.id)}
+                            >
+                              Habilitar
+                            </Button>
+                          )}
+                        </div>
+                      </TableCell>
+                    )}
                   </TableRow>
                 ))}
               </TableBody>
@@ -904,6 +991,80 @@ export default function SettingsPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* ── Change Password Dialog ──────────────────────── */}
+      <Dialog
+        open={passwordChangeUser !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setPasswordChangeUser(null);
+            setPwdChangeValue("");
+            setPwdChangeError("");
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Cambiar contraseña</DialogTitle>
+            <DialogDescription>
+              {passwordChangeUser
+                ? `Establece una nueva contraseña para ${passwordChangeUser.displayName ?? passwordChangeUser.username}.`
+                : ""}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            <div>
+              <label className="mb-1 block text-xs font-medium text-muted-foreground">
+                Nueva contraseña
+              </label>
+              <div className="relative">
+                <Input
+                  type={pwdChangeShow ? "text" : "password"}
+                  value={pwdChangeValue}
+                  onChange={(e) => setPwdChangeValue(e.target.value)}
+                  className="pr-9 text-sm"
+                  autoFocus
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") submitPasswordChange();
+                  }}
+                />
+                <button
+                  type="button"
+                  onClick={() => setPwdChangeShow((s) => !s)}
+                  className="absolute inset-y-0 right-0 flex w-9 items-center justify-center text-muted-foreground hover:text-foreground"
+                  aria-label={
+                    pwdChangeShow
+                      ? "Ocultar contraseña"
+                      : "Mostrar contraseña"
+                  }
+                >
+                  {pwdChangeShow ? (
+                    <EyeOffIcon className="size-4" />
+                  ) : (
+                    <EyeIcon className="size-4" />
+                  )}
+                </button>
+              </div>
+              <p className="mt-1 text-[10px] text-muted-foreground">
+                Mínimo 6 caracteres.
+              </p>
+            </div>
+            {pwdChangeError && (
+              <p className="text-xs font-medium text-danger-text">
+                {pwdChangeError}
+              </p>
+            )}
+          </div>
+          <DialogFooter>
+            <Button
+              onClick={submitPasswordChange}
+              disabled={pwdChangeSaving || pwdChangeValue.length < 6}
+            >
+              {pwdChangeSaving ? "Guardando..." : "Actualizar contraseña"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

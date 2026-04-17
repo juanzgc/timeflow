@@ -1,14 +1,12 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { settings } from "@/drizzle/schema";
-import { auth } from "@/auth";
+import { requireAuth, requireSuperadmin } from "@/lib/auth-helpers";
 
 /** GET /api/settings — return all settings as key-value object */
 export async function GET() {
-  const session = await auth();
-  if (!session?.user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const { response } = await requireAuth();
+  if (response) return response;
 
   const rows = await db.select().from(settings);
   const result: Record<string, string> = {};
@@ -19,12 +17,10 @@ export async function GET() {
   return NextResponse.json(result);
 }
 
-/** PUT /api/settings — bulk update settings */
+/** PUT /api/settings — bulk update settings (superadmin only) */
 export async function PUT(request: Request) {
-  const session = await auth();
-  if (!session?.user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const { response } = await requireSuperadmin();
+  if (response) return response;
 
   const body: Record<string, string> = await request.json();
 

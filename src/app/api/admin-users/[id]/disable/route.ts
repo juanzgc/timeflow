@@ -2,17 +2,15 @@ import { NextResponse } from "next/server";
 import { eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { adminUsers, sessions } from "@/drizzle/schema";
-import { auth } from "@/auth";
+import { requireSuperadmin } from "@/lib/auth-helpers";
 
-/** PUT /api/admin-users/[id]/disable — disable user + kill sessions */
+/** PUT /api/admin-users/[id]/disable — disable user + kill sessions (superadmin only) */
 export async function PUT(
   _request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  const session = await auth();
-  if (!session?.user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const { session, response } = await requireSuperadmin();
+  if (response) return response;
 
   const { id: idStr } = await params;
   const id = parseInt(idStr, 10);

@@ -44,6 +44,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           id: String(user.id),
           email: user.email ?? "",
           name: user.displayName ?? user.username,
+          role: user.role,
         };
       },
     }),
@@ -52,11 +53,12 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     async jwt({ token, user }) {
       if (user) {
         token.id = user.id;
+        token.role = (user as { role?: string }).role;
       }
-      // Check is_active on every token refresh to enable instant revocation
+      // Check is_active + refresh role on every token refresh to enable instant revocation
       if (token.id) {
         const rows = await db
-          .select({ isActive: adminUsers.isActive })
+          .select({ isActive: adminUsers.isActive, role: adminUsers.role })
           .from(adminUsers)
           .where(eq(adminUsers.id, Number(token.id)))
           .limit(1);
@@ -64,6 +66,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         if (!rows.length || !rows[0].isActive) {
           return { ...token, isActive: false };
         }
+        token.role = rows[0].role;
       }
       return token;
     },
@@ -73,6 +76,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         return {} as typeof session;
       }
       session.user.id = token.id as string;
+      session.user.role = token.role as string;
       return session;
     },
   },
