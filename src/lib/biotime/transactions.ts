@@ -80,9 +80,10 @@ export async function syncTransactions(
         biotimeId: tx.id,
         source: "biotime",
       })
-      .onConflictDoNothing({ target: punchLogs.biotimeId });
+      .onConflictDoNothing({ target: punchLogs.biotimeId })
+      .returning({ id: punchLogs.id });
 
-    if (result.rowCount && result.rowCount > 0) {
+    if (result.length > 0) {
       inserted++;
       // Track affected day only for newly inserted punches
       const businessDay = extractBusinessDay(tx.punch_time);
