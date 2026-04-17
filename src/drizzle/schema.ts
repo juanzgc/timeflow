@@ -38,7 +38,7 @@ export const sessions = pgTable("sessions", {
 // ─── groups ─────────────────────────────────────────────────────────────────
 export const groups = pgTable("groups", {
   id: serial("id").primaryKey(),
-  name: text("name").notNull(), // 'Kitchen', 'Servers', 'Bar', 'Admin'
+  name: text("name").unique().notNull(), // 'Kitchen', 'Servers', 'Bar', 'Admin'
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 

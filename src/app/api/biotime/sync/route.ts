@@ -7,6 +7,7 @@ import { syncEmployees } from "@/lib/biotime/employees";
 import { syncTransactions } from "@/lib/biotime/transactions";
 import { markConnected, markDisconnected } from "@/lib/biotime/auth";
 import { calculateAttendance } from "@/lib/engine/attendance-calculator";
+import { auth } from "@/auth";
 
 // ─── Concurrency lock helpers ───────────────────────────────────────────────
 
@@ -79,12 +80,16 @@ async function recalculateAffectedDays(
 // ─── POST /api/biotime/sync ─────────────────────────────────────────────────
 
 export async function POST(request: Request) {
-  // Auth: accept cron secret or session cookie
+  // Auth: accept cron secret OR authenticated session
   const authHeader = request.headers.get("authorization");
   const cronSecret = process.env.CRON_SECRET;
+  const hasCronAuth = cronSecret && authHeader === `Bearer ${cronSecret}`;
 
-  if (cronSecret && cronSecret !== "" && authHeader !== `Bearer ${cronSecret}`) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!hasCronAuth) {
+    const session = await auth();
+    if (!session?.user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
   }
 
   // Concurrency lock

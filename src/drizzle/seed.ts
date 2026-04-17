@@ -2,7 +2,6 @@ import dotenv from "dotenv";
 
 dotenv.config({ path: ".env.local" });
 import { hash } from "bcryptjs";
-import { eq } from "drizzle-orm";
 import postgres from "postgres";
 import { drizzle } from "drizzle-orm/postgres-js";
 import { adminUsers, groups, settings } from "./schema";
@@ -24,27 +23,25 @@ async function seed() {
 
   console.log("Seeded groups: Kitchen, Servers, Bar, Admin");
 
-  // Update admin user if it exists, otherwise skip
+  // Seed admin user
   const username = process.env.ADMIN_USERNAME ?? "admin";
   const email = process.env.ADMIN_EMAIL ?? "gerencia@zelavi.co";
   const password = process.env.ADMIN_PASSWORD ?? "password";
   const passwordHash = await hash(password, 12);
 
-  const [existing] = await db
-    .select({ id: adminUsers.id })
-    .from(adminUsers)
-    .where(eq(adminUsers.username, "admin"))
-    .limit(1);
+  await db
+    .insert(adminUsers)
+    .values({
+      username,
+      email,
+      passwordHash,
+      displayName: "Administrator",
+      role: "superadmin",
+      isActive: true,
+    })
+    .onConflictDoNothing();
 
-  if (existing) {
-    await db
-      .update(adminUsers)
-      .set({ username, email, passwordHash })
-      .where(eq(adminUsers.id, existing.id));
-    console.log(`Updated admin user: ${username}`);
-  } else {
-    console.log("No 'admin' user found — skipping admin user seed");
-  }
+  console.log(`Seeded admin user: ${username}`);
 
   // Seed default settings
   await db
