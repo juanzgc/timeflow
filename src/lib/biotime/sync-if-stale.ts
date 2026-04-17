@@ -4,6 +4,8 @@ import { settings } from "@/drizzle/schema";
 import { getBioTimeClient } from "./client";
 import { syncTransactions } from "./transactions";
 import { markConnected } from "./auth";
+import { recalculateAffectedDays } from "./recalculate";
+import { invalidateAttendance } from "@/lib/attendance/invalidate";
 
 /**
  * Sync BioTime transactions if the last sync is older than `maxAgeMinutes`.
@@ -45,7 +47,7 @@ export async function syncIfStale(maxAgeMinutes = 5): Promise<boolean> {
 
     // Stale — sync transactions only (no employee sync, that's heavier)
     const client = await getBioTimeClient();
-    await syncTransactions(client);
+    const result = await syncTransactions(client);
 
     // Update last_sync_time
     const now = new Date().toISOString();
@@ -55,6 +57,12 @@ export async function syncIfStale(maxAgeMinutes = 5): Promise<boolean> {
       .onConflictDoUpdate({ target: settings.key, set: { value: now } });
 
     await markConnected();
+
+    if (result.affectedDays.length > 0) {
+      await recalculateAffectedDays(result.affectedDays);
+      invalidateAttendance();
+    }
+
     return true;
   } catch {
     // BioTime unreachable — page still loads with existing data

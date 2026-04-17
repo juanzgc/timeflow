@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
-import { calculateAttendance } from "@/lib/engine/attendance-calculator";
+import { recalcAndInvalidate } from "@/lib/attendance/invalidate";
 
 /**
  * POST /api/attendance/recalculate
@@ -24,7 +24,7 @@ export async function POST(request: Request) {
     );
   }
 
-  const results = await calculateAttendance({
+  const results = await recalcAndInvalidate({
     employeeId,
     startDate: workDate,
     endDate: workDate,

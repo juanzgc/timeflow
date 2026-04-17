@@ -9,8 +9,8 @@ import {
   compTransactions,
 } from "@/drizzle/schema";
 import { auth } from "@/auth";
-import { syncIfStale } from "@/lib/biotime/sync-if-stale";
 import { calculateAttendance } from "@/lib/engine/attendance-calculator";
+import { invalidateEmployees } from "@/lib/attendance/invalidate";
 import { getSurchargeConfig } from "@/lib/engine/colombian-labor";
 import { todayColombiaISO } from "@/lib/timezone";
 
@@ -59,9 +59,7 @@ export async function GET(
   const divisor = surchargeConfig.monthlyHoursDivisor;
   const horaOrdinaria = salary > 0 ? Math.round(salary / divisor) : 0;
 
-  // Run syncIfStale + calculate for today
   try {
-    await syncIfStale(5);
     await calculateAttendance({ employeeId, startDate: today, endDate: today });
   } catch {
     // Continue with existing data
@@ -211,5 +209,6 @@ export async function PUT(
     return NextResponse.json({ error: "Employee not found" }, { status: 404 });
   }
 
+  invalidateEmployees();
   return NextResponse.json(row);
 }

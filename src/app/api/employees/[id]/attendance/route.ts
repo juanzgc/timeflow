@@ -3,8 +3,8 @@ import { and, eq, gte, lte } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { dailyAttendance, employees, punchLogs, punchCorrections } from "@/drizzle/schema";
 import { auth } from "@/auth";
-import { syncIfStale } from "@/lib/biotime/sync-if-stale";
 import { calculateAttendance } from "@/lib/engine/attendance-calculator";
+import { invalidateAttendance } from "@/lib/attendance/invalidate";
 
 export async function GET(
   request: Request,
@@ -32,9 +32,7 @@ export async function GET(
     );
   }
 
-  // Calculate-on-read pattern: sync + recalculate before querying
   try {
-    await syncIfStale(5);
     await calculateAttendance({ employeeId, startDate, endDate });
   } catch {
     // Continue with existing data
@@ -194,6 +192,8 @@ export async function DELETE(
   await db
     .delete(dailyAttendance)
     .where(eq(dailyAttendance.id, record.id));
+
+  invalidateAttendance();
 
   return NextResponse.json({ success: true });
 }

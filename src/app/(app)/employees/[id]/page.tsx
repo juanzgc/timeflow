@@ -703,8 +703,8 @@ function EmployeeDetailContent() {
                         <TableHead className="w-[60px]">Nocturno</TableHead>
                         <TableHead className="w-[60px]">Festivo D</TableHead>
                         <TableHead className="w-[60px]">Festivo N</TableHead>
-                        <TableHead className="w-[60px]">Exceso D</TableHead>
-                        <TableHead className="w-[60px]">Exceso N</TableHead>
+                        <TableHead className="w-[60px]">Extra D</TableHead>
+                        <TableHead className="w-[60px]">Extra N</TableHead>
                         <TableHead className="w-[80px]">Acciones</TableHead>
                       </TableRow>
                     </TableHeader>

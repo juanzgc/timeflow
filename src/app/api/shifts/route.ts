@@ -5,7 +5,7 @@ import { shifts, weeklySchedules, compTransactions } from "@/drizzle/schema";
 import { auth } from "@/auth";
 import { doShiftsOverlap, getGapBetweenShifts } from "@/lib/schedule-utils";
 import { todayColombiaISO } from "@/lib/timezone";
-import { calculateAttendance } from "@/lib/engine/attendance-calculator";
+import { recalcAndInvalidate, invalidateCompBalances } from "@/lib/attendance/invalidate";
 
 // POST /api/shifts — create a new shift
 export async function POST(request: Request) {
@@ -204,6 +204,7 @@ export async function POST(request: Request) {
       sourceShiftId: row.id,
       createdBy: session.user.name ?? "admin",
     });
+    invalidateCompBalances();
 
     if (newBalance < 0) {
       warning = `Employee balance will go negative: ${currentBalance} - ${compDebitMins} = ${newBalance}`;
@@ -235,7 +236,7 @@ async function recalculateForShift(scheduleId: number, employeeId: number, dayOf
   const dateStr = target.toISOString().slice(0, 10);
 
   try {
-    await calculateAttendance({ employeeId, startDate: dateStr, endDate: dateStr });
+    await recalcAndInvalidate({ employeeId, startDate: dateStr, endDate: dateStr });
   } catch {
     // Best-effort — don't fail the shift operation
   }

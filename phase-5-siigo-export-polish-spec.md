@@ -175,8 +175,8 @@ One row per employee per day in the period.
 | S | Nocturno (min) | minsNocturno |
 | T | Festivo Diurno (min) | minsFestivoDay |
 | U | Festivo Nocturno (min) | minsFestivoNight |
-| V | Exceso Diurno (min) | excessHedMins |
-| W | Exceso Nocturno (min) | excessHenMins |
+| V | Extra Diurno (min) | excessHedMins |
+| W | Extra Nocturno (min) | excessHenMins |
 | X | Límite Diario (min) | dailyLimitMins |
 
 **Formatting:**

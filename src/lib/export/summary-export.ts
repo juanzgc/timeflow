@@ -311,8 +311,8 @@ export async function generateSummaryExcel(
     "Nocturno (min)",
     "Festivo Diurno (min)",
     "Festivo Nocturno (min)",
-    "Exceso Diurno (min)",
-    "Exceso Nocturno (min)",
+    "Extra Diurno (min)",
+    "Extra Nocturno (min)",
     "Límite Diario (min)",
   ]);
   styleHeader(ws2);

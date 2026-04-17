@@ -5,7 +5,7 @@ import { shifts, weeklySchedules, compTransactions } from "@/drizzle/schema";
 import { auth } from "@/auth";
 import { doShiftsOverlap, getGapBetweenShifts } from "@/lib/schedule-utils";
 import { todayColombiaISO } from "@/lib/timezone";
-import { calculateAttendance } from "@/lib/engine/attendance-calculator";
+import { recalcAndInvalidate, invalidateCompBalances } from "@/lib/attendance/invalidate";
 
 // PUT /api/shifts/[id] — update a shift
 export async function PUT(
@@ -198,6 +198,7 @@ export async function DELETE(
       createdBy: session.user.name ?? "admin",
       note: `Reversed comp day off deletion (shift #${shiftId})`,
     });
+    invalidateCompBalances();
   }
 
   // Detach comp_transactions that reference this shift (or its split pair)
@@ -247,7 +248,7 @@ async function recalculateForShift(scheduleId: number, employeeId: number, dayOf
   const dateStr = target.toISOString().slice(0, 10);
 
   try {
-    await calculateAttendance({ employeeId, startDate: dateStr, endDate: dateStr });
+    await recalcAndInvalidate({ employeeId, startDate: dateStr, endDate: dateStr });
   } catch {
     // Best-effort — don't fail the shift operation
   }

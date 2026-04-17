@@ -1,12 +1,13 @@
 import { NextResponse } from "next/server";
 import { eq } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { employees, settings } from "@/drizzle/schema";
+import { settings } from "@/drizzle/schema";
 import { getBioTimeClient } from "@/lib/biotime/client";
 import { syncEmployees } from "@/lib/biotime/employees";
 import { syncTransactions } from "@/lib/biotime/transactions";
 import { markConnected, markDisconnected } from "@/lib/biotime/auth";
-import { calculateAttendance } from "@/lib/engine/attendance-calculator";
+import { recalculateAffectedDays } from "@/lib/biotime/recalculate";
+import { invalidateAttendance } from "@/lib/attendance/invalidate";
 import { auth } from "@/auth";
 
 // ─── Concurrency lock helpers ───────────────────────────────────────────────
@@ -35,46 +36,6 @@ async function releaseLock(): Promise<void> {
     .insert(settings)
     .values({ key: "sync_in_progress", value: "false" })
     .onConflictDoUpdate({ target: settings.key, set: { value: "false" } });
-}
-
-// ─── Recalculate affected days ──────────────────────────────────────────────
-
-async function recalculateAffectedDays(
-  affectedDays: string[],
-): Promise<void> {
-  // Group affected days by empCode
-  const byEmployee = new Map<string, Set<string>>();
-  for (const entry of affectedDays) {
-    const [empCode, date] = entry.split(":");
-    if (!byEmployee.has(empCode)) byEmployee.set(empCode, new Set());
-    byEmployee.get(empCode)!.add(date);
-  }
-
-  for (const [empCode, dates] of byEmployee) {
-    // Look up employee ID
-    const [emp] = await db
-      .select({ id: employees.id })
-      .from(employees)
-      .where(eq(employees.empCode, empCode))
-      .limit(1);
-
-    if (!emp) continue;
-
-    const sortedDates = Array.from(dates).sort();
-    const startDate = sortedDates[0];
-    const endDate = sortedDates[sortedDates.length - 1];
-
-    // Call engine directly — no HTTP, no auth needed
-    try {
-      await calculateAttendance({
-        employeeId: emp.id,
-        startDate,
-        endDate,
-      });
-    } catch {
-      // Best-effort recalculation — don't fail the sync
-    }
-  }
 }
 
 // ─── POST /api/biotime/sync ─────────────────────────────────────────────────
@@ -119,6 +80,7 @@ export async function POST(request: Request) {
     // Recalculate attendance for affected days (best-effort, direct engine call)
     if (transactionResult.affectedDays.length > 0) {
       await recalculateAffectedDays(transactionResult.affectedDays);
+      invalidateAttendance();
     }
 
     return NextResponse.json({

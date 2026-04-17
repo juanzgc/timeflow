@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { employees } from "@/drizzle/schema";
 import type { BioTimeClient } from "./client";
 import type { BioTimeEmployee, EmployeeSyncResult } from "./types";
+import { invalidateEmployees } from "@/lib/attendance/invalidate";
 
 /**
  * Sync employees from BioTime.
@@ -49,6 +50,10 @@ export async function syncEmployees(
       });
       created++;
     }
+  }
+
+  if (created > 0 || updated > 0) {
+    invalidateEmployees();
   }
 
   return { total: remote.length, created, updated };

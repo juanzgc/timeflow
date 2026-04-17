@@ -6,6 +6,7 @@ import { auth } from "@/auth";
 import { applyCompDecision } from "@/lib/engine/period-reconciler";
 import type { PeriodReconciliation } from "@/lib/engine/period-reconciler";
 import { colombiaStartOfDay } from "@/lib/timezone";
+import { invalidateCompBalances } from "@/lib/attendance/invalidate";
 
 /**
  * PUT /api/payroll/[periodId]/comp-decision
@@ -106,6 +107,7 @@ export async function PUT(
     results.push(updated);
   }
 
+  invalidateCompBalances();
   return NextResponse.json({ results });
 }
 

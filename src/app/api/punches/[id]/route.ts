@@ -3,6 +3,7 @@ import { eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { punchLogs, punchCorrections } from "@/drizzle/schema";
 import { auth } from "@/auth";
+import { recalcAndInvalidate } from "@/lib/attendance/invalidate";
 
 export async function PUT(
   request: Request,
@@ -61,6 +62,17 @@ export async function PUT(
       reason,
       correctedBy: session.user.name ?? "admin",
     });
+
+    const oldDate = original.punchTime;
+    const oldWorkDate = `${oldDate.getFullYear()}-${String(oldDate.getMonth() + 1).padStart(2, "0")}-${String(oldDate.getDate()).padStart(2, "0")}`;
+    const startDate = oldWorkDate < workDate ? oldWorkDate : workDate;
+    const endDate = oldWorkDate < workDate ? workDate : oldWorkDate;
+
+    try {
+      await recalcAndInvalidate({ employeeId, startDate, endDate });
+    } catch {
+      // Non-fatal
+    }
   }
 
   return NextResponse.json(updated);

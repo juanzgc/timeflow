@@ -3,6 +3,7 @@ import { and, eq, gte, lte, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { payrollPeriods, dailyAttendance, employees } from "@/drizzle/schema";
 import { auth } from "@/auth";
+import { invalidateAttendance } from "@/lib/attendance/invalidate";
 
 /**
  * POST /api/payroll/[periodId]/finalize
@@ -121,6 +122,8 @@ export async function POST(
       status: payrollPeriods.status,
       finalizedAt: payrollPeriods.finalizedAt,
     });
+
+  invalidateAttendance();
 
   return NextResponse.json({
     finalized: updated.length,

@@ -3,6 +3,7 @@ import { and, eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { weeklySchedules, shifts } from "@/drizzle/schema";
 import { auth } from "@/auth";
+import { recalcAndInvalidate } from "@/lib/attendance/invalidate";
 
 // POST /api/schedules/[weekStart]/[groupId]/copy-previous
 export async function POST(
@@ -128,6 +129,23 @@ export async function POST(
         .update(shifts)
         .set({ splitPairId: newPairId })
         .where(eq(shifts.id, newId));
+    }
+  }
+
+  // Recalculate attendance for every affected employee across the target week
+  const weekEnd = new Date(currentMonday);
+  weekEnd.setDate(weekEnd.getDate() + 6);
+  const weekEndStr = weekEnd.toISOString().split("T")[0];
+  const affectedEmployeeIds = [...new Set(regularShifts.map((s) => s.employeeId))];
+  for (const employeeId of affectedEmployeeIds) {
+    try {
+      await recalcAndInvalidate({
+        employeeId,
+        startDate: weekStart,
+        endDate: weekEndStr,
+      });
+    } catch {
+      // Best-effort
     }
   }
 

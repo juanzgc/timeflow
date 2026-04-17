@@ -3,7 +3,7 @@ import { and, eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { punchLogs, punchCorrections, employees, dailyAttendance } from "@/drizzle/schema";
 import { auth } from "@/auth";
-import { calculateAttendance } from "@/lib/engine/attendance-calculator";
+import { recalcAndInvalidate } from "@/lib/attendance/invalidate";
 
 export async function POST(request: Request) {
   const session = await auth();
@@ -66,7 +66,7 @@ export async function POST(request: Request) {
 
   // Recalculate attendance for this day
   try {
-    await calculateAttendance({
+    await recalcAndInvalidate({
       employeeId,
       startDate: computedWorkDate,
       endDate: computedWorkDate,
@@ -179,7 +179,7 @@ async function handleCorrections(
 
   // Recalculate attendance for this day
   try {
-    await calculateAttendance({
+    await recalcAndInvalidate({
       employeeId,
       startDate: workDate,
       endDate: workDate,
