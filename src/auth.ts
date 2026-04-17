@@ -8,6 +8,15 @@ import { adminUsers } from "@/drizzle/schema";
 export const { handlers, auth, signIn, signOut } = NextAuth({
   session: { strategy: "jwt" },
   pages: { signIn: "/login" },
+  logger: {
+    error(error) {
+      if (error.name === "CredentialsSignin") {
+        console.info("[auth][info] Invalid credentials");
+        return;
+      }
+      console.error(`[auth][error] ${error.message}`, error);
+    },
+  },
   providers: [
     Credentials({
       credentials: {
