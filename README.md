@@ -14,6 +14,8 @@ pnpm dev              # Start development server at http://localhost:3000
 
 ## Deployment Guide (Railway)
 
+https://docs.railway.com/guides/nextjs
+
 ### Architecture
 
 Three services in one Railway project:
