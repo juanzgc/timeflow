@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback, useMemo } from "react";
+import { Suspense, useEffect, useState, useCallback, useMemo } from "react";
 import { useParams, useSearchParams } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -220,6 +220,14 @@ function getSundayOf(dateStr: string): string {
 // ─── Main Component ──────────────────────────────────────────────────────
 
 export default function EmployeeDetailPage() {
+  return (
+    <Suspense>
+      <EmployeeDetailContent />
+    </Suspense>
+  );
+}
+
+function EmployeeDetailContent() {
   const params = useParams();
   const searchParams = useSearchParams();
   const id = params.id as string;
