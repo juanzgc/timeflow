@@ -61,22 +61,29 @@ Set these on **both** the web service and the cron service. Use Railway referenc
 ```
 DATABASE_URL=${{Postgres.DATABASE_URL}}
 NEXTAUTH_SECRET=<generate a random 32+ char string>
-NEXTAUTH_URL=https://<your-railway-domain>.railway.app
+NEXTAUTH_URL=https://${{RAILWAY_PUBLIC_DOMAIN}}
+AUTH_TRUST_HOST=true
+HOSTNAME=0.0.0.0
+PORT=3000
 BIOTIME_URL=https://biotime.zelavi.co
 BIOTIME_USERNAME=<biotime username>
 BIOTIME_PASSWORD=<biotime password>
 CRON_SECRET=<generate a random secret>
 ```
 
+- `HOSTNAME=0.0.0.0` — required so the standalone server binds to all interfaces (otherwise Railway's proxy can't reach it)
+- `PORT=3000` — Railway may override this, but set it explicitly for consistency
+- `AUTH_TRUST_HOST=true` — tells NextAuth v5 to trust the `X-Forwarded-Host` header from Railway's reverse proxy
+
 ### 3. Web Service Configuration
 
 In the web service settings:
 
-- **Build command:** `pnpm install && pnpm db:migrate && pnpm build`
+- **Build command:** `pnpm build && cp -r .next/static .next/standalone/.next/static && cp -r public .next/standalone/public`
+- **Pre-deploy command:** `pnpm db:migrate`
 - **Start command:** `pnpm start` (runs `node .next/standalone/server.js`)
-- **Port:** Auto-detected (3000)
 
-The standalone output bundles only the dependencies actually used, producing a ~150MB deployment instead of shipping the full `node_modules`. The `db:migrate` in the build step ensures migrations run on every deploy before the app starts.
+Nixpacks handles `pnpm install` automatically — don't include it in the build command. The `cp` commands are required because Next.js standalone output does not include static assets; they must be copied into the standalone directory manually. The pre-deploy command runs migrations before the new version goes live.
 
 ### 4. Cron Service (BioTime Sync)
 
