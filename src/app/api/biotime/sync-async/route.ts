@@ -87,29 +87,43 @@ async function runSync(): Promise<void> {
 // ─── POST /api/biotime/sync-async ───────────────────────────────────────────
 
 export async function POST(request: Request) {
-  // Auth: accept cron secret OR authenticated session
-  const authHeader = request.headers.get("authorization");
-  const cronSecret = process.env.CRON_SECRET;
-  const hasCronAuth = cronSecret && authHeader === `Bearer ${cronSecret}`;
+  console.info(
+    `[biotime-sync-async][info] Async sync request received at ${new Date().toISOString()}`,
+  );
 
-  if (!hasCronAuth) {
-    const session = await auth();
-    if (!session?.user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  try {
+    // Auth: accept cron secret OR authenticated session
+    const authHeader = request.headers.get("authorization");
+    const cronSecret = process.env.CRON_SECRET;
+    const hasCronAuth = cronSecret && authHeader === `Bearer ${cronSecret}`;
+
+    if (!hasCronAuth) {
+      const session = await auth();
+      if (!session?.user) {
+        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      }
     }
-  }
 
-  // Concurrency lock
-  const acquired = await acquireLock();
-  if (!acquired) {
-    return NextResponse.json(
-      { error: "Sync already in progress" },
-      { status: 409 },
+    // Concurrency lock
+    const acquired = await acquireLock();
+    if (!acquired) {
+      return NextResponse.json(
+        { error: "Sync already in progress" },
+        { status: 409 },
+      );
+    }
+
+    // Fire-and-forget: kick off the sync without awaiting it.
+    void runSync();
+
+    return NextResponse.json({ success: true, queued: true }, { status: 202 });
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : "Unknown error";
+    console.error(
+      `[biotime-sync-async][error] Failed to queue sync: ${message}`,
+      error,
     );
+    return NextResponse.json({ error: message }, { status: 500 });
   }
-
-  // Fire-and-forget: kick off the sync without awaiting it.
-  void runSync();
-
-  return NextResponse.json({ success: true, queued: true }, { status: 202 });
 }
