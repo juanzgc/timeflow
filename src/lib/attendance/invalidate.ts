@@ -13,18 +13,18 @@ export async function recalcAndInvalidate(
   options: AttendanceOptions,
 ): Promise<AttendanceResult[]> {
   const results = await calculateAttendance(options);
-  revalidateTag(ATTENDANCE_TAG);
+  revalidateTag(ATTENDANCE_TAG, "max");
   return results;
 }
 
 export function invalidateAttendance(): void {
-  revalidateTag(ATTENDANCE_TAG);
+  revalidateTag(ATTENDANCE_TAG, "max");
 }
 
 export function invalidateEmployees(): void {
-  revalidateTag(EMPLOYEES_TAG);
+  revalidateTag(EMPLOYEES_TAG, "max");
 }
 
 export function invalidateCompBalances(): void {
-  revalidateTag(COMP_BALANCES_TAG);
+  revalidateTag(COMP_BALANCES_TAG, "max");
 }

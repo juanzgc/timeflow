@@ -142,6 +142,9 @@ async function fetchTodayAttendance(
     ...r,
     clockIn: r.clockIn ? r.clockIn.toISOString() : null,
     clockOut: r.clockOut ? r.clockOut.toISOString() : null,
+    isMissingPunch: r.isMissingPunch ?? false,
+    isClockInManual: r.isClockInManual ?? false,
+    isClockOutManual: r.isClockOutManual ?? false,
   }));
 
   const totalEmployees = serialized.length;

@@ -56,7 +56,7 @@ export type GroupRow = {
   name: string;
 };
 
-const CACHE_OPTS = { tags: [ATTENDANCE_TAG], revalidate: 300 } as const;
+const CACHE_OPTS = { tags: [ATTENDANCE_TAG], revalidate: 300 };
 
 async function fetchEmployeesSummary(
   startDate: string,
