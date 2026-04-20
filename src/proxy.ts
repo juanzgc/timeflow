@@ -2,7 +2,12 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { auth } from "@/auth";
 
-const publicPaths = ["/login", "/api/auth", "/api/biotime/sync"];
+const publicPaths = [
+  "/login",
+  "/api/auth",
+  "/api/biotime/sync",
+  "/api/biotime/sync-async",
+];
 
 function isPublic(pathname: string) {
   return publicPaths.some(
