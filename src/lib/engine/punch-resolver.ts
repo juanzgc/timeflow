@@ -59,8 +59,10 @@ export function resolvePunches(
     (a, b) => a.punchTime.getTime() - b.punchTime.getTime(),
   );
 
-  // Group punches into business days
-  const dayMap = new Map<string, Date[]>();
+  // Group punches into business days — keep state alongside time so we can
+  // pair by punchState (first Entrada / last Salida), not by time-order.
+  type DayPunch = { time: Date; state: string | null };
+  const dayMap = new Map<string, DayPunch[]>();
 
   for (const punch of sorted) {
     let businessDay = getBusinessDay(punch.punchTime);
@@ -89,7 +91,7 @@ export function resolvePunches(
 
     const key = formatDateISO(businessDay);
     const existing = dayMap.get(key) ?? [];
-    existing.push(punch.punchTime);
+    existing.push({ time: punch.punchTime, state: punch.punchState });
     dayMap.set(key, existing);
   }
 
@@ -99,34 +101,42 @@ export function resolvePunches(
   for (const [dateStr, dayPunches] of dayMap) {
     const workDate = colombiaStartOfDay(dateStr);
     // Sort ascending within the day
-    dayPunches.sort((a, b) => a.getTime() - b.getTime());
+    dayPunches.sort((a, b) => a.time.getTime() - b.time.getTime());
 
-    const first = dayPunches[0];
-    const last = dayPunches[dayPunches.length - 1];
+    // Pair by punchState:
+    //   clockIn  = first Entrada (state === "0") of the day
+    //   clockOut = last  Salida  (state === "1") of the day
+    // Multiple Salidas/Entradas on the same day are a valid real-world case
+    // (e.g. brief step-outs that result in extra Salidas); the first IN /
+    // last OUT is what matters for payroll.
+    const firstEntrada = dayPunches.find((p) => p.state === "0");
+    const lastSalida = [...dayPunches].reverse().find((p) => p.state === "1");
 
-    if (dayPunches.length === 1) {
-      // Single punch — missing the other
-      results.push({
-        employeeId,
-        empCode,
-        workDate,
-        clockIn: first,
-        clockOut: null,
-        isMissingPunch: true,
-        allPunches: dayPunches,
-      });
-    } else {
-      // Multiple punches — first = in, last = out
-      results.push({
-        employeeId,
-        empCode,
-        workDate,
-        clockIn: first,
-        clockOut: last,
-        isMissingPunch: false,
-        allPunches: dayPunches,
-      });
+    let clockIn: Date | null = firstEntrada?.time ?? null;
+    let clockOut: Date | null = lastSalida?.time ?? null;
+
+    // Fallback for null-state rows (legacy data or manual entries without an
+    // explicit IN/OUT flag). If no authoritative state on the day, fall back
+    // to the time-order heuristic (first = IN, last = OUT) so we don't drop
+    // the record entirely.
+    const hasAnyState = dayPunches.some((p) => p.state === "0" || p.state === "1");
+    if (!hasAnyState) {
+      clockIn = dayPunches[0].time;
+      clockOut =
+        dayPunches.length > 1 ? dayPunches[dayPunches.length - 1].time : null;
     }
+
+    const isMissingPunch = clockIn === null || clockOut === null;
+
+    results.push({
+      employeeId,
+      empCode,
+      workDate,
+      clockIn,
+      clockOut,
+      isMissingPunch,
+      allPunches: dayPunches.map((p) => p.time),
+    });
   }
 
   // Sort results by work date
