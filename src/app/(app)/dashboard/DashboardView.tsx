@@ -33,6 +33,7 @@ import {
 } from "@/lib/format";
 import { COL_TZ } from "@/lib/timezone";
 import { flushCacheAction } from "@/lib/actions/flush-cache";
+import { GROUP_COLORS } from "@/lib/group-colors";
 import type {
   TodayData,
   TodayAttendanceRow,
@@ -40,13 +41,6 @@ import type {
   PeriodTrackerData,
   DashboardAlerts,
 } from "@/lib/dashboard/queries";
-
-const GROUP_COLORS: Record<string, string> = {
-  Kitchen: "var(--group-kitchen)",
-  Servers: "var(--group-servers)",
-  Bar: "var(--group-bar)",
-  Admin: "var(--group-admin)",
-};
 
 const REFRESH_INTERVAL_MS = 60_000;
 

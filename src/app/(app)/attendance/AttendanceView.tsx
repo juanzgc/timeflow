@@ -16,19 +16,13 @@ import { Button } from "@/components/ui/button";
 import { ChevronDownIcon, ChevronRightIcon, PencilIcon, RefreshCwIcon } from "lucide-react";
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip";
 import { formatMins, formatTime, getDayName } from "@/lib/format";
+import { GROUP_COLORS } from "@/lib/group-colors";
 import type {
   EmployeeSummaryRow,
   DailyRecord,
   GroupRow,
 } from "@/lib/attendance/queries";
 import { recalcAttendanceAction } from "./actions";
-
-const GROUP_COLORS: Record<string, string> = {
-  Kitchen: "var(--group-kitchen)",
-  Servers: "var(--group-servers)",
-  Bar: "var(--group-bar)",
-  Admin: "var(--group-admin)",
-};
 
 type Props = {
   startDate: string;

@@ -33,13 +33,7 @@ import {
 import Link from "next/link";
 import { formatMins, formatCOP, formatPeriodRange, formatMinsAsHours } from "@/lib/format";
 import { flushCacheAction } from "@/lib/actions/flush-cache";
-
-const GROUP_COLORS: Record<string, string> = {
-  Kitchen: "var(--group-kitchen)",
-  Servers: "var(--group-servers)",
-  Bar: "var(--group-bar)",
-  Admin: "var(--group-admin)",
-};
+import { GROUP_COLORS } from "@/lib/group-colors";
 
 type PeriodRecord = {
   id: number;

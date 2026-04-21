@@ -22,6 +22,7 @@ import { flushCacheAction } from "@/lib/actions/flush-cache";
 import { Input } from "@/components/ui/input";
 import { UsersIcon, CheckIcon, XIcon, PencilIcon, ChevronRightIcon } from "lucide-react";
 import Link from "next/link";
+import { GROUP_COLORS } from "@/lib/group-colors";
 
 const DAY_LABELS = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
 
@@ -44,13 +45,6 @@ type EditState = {
   employeeId: number;
   field: "groupId" | "monthlySalary" | "restDay" | "cedula";
 } | null;
-
-const GROUP_COLORS: Record<string, string> = {
-  Kitchen: "var(--group-kitchen)",
-  Servers: "var(--group-servers)",
-  Bar: "var(--group-bar)",
-  Admin: "var(--group-admin)",
-};
 
 export default function EmployeesPage() {
   const [employees, setEmployees] = useState<Employee[]>([]);

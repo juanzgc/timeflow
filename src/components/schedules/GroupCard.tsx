@@ -5,13 +5,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { UsersIcon, ChevronRightIcon } from "lucide-react";
 import { formatDateISO } from "@/lib/schedule-utils";
-
-const GROUP_COLORS: Record<string, string> = {
-  Kitchen: "#e87040",
-  Servers: "#00b899",
-  Bar: "#7c5cbf",
-  Admin: "#3e93de",
-};
+import { GROUP_COLORS } from "@/lib/group-colors";
 
 type ScheduleInfo = {
   id: number;

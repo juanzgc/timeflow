@@ -53,16 +53,10 @@ import { PunchCorrectionModal } from "@/components/attendance/PunchCorrectionMod
 import { EditEmployeeModal } from "@/components/employees/EditEmployeeModal";
 import { ResyncEmployeeModal } from "@/components/employees/ResyncEmployeeModal";
 import { flushCacheAction } from "@/lib/actions/flush-cache";
+import { GROUP_COLORS } from "@/lib/group-colors";
 
 const DAY_LABELS = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"];
 const DAY_LABELS_SHORT = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
-
-const GROUP_COLORS: Record<string, string> = {
-  Kitchen: "var(--group-kitchen)",
-  Servers: "var(--group-servers)",
-  Bar: "var(--group-bar)",
-  Admin: "var(--group-admin)",
-};
 
 type EmployeeData = {
   employee: {
