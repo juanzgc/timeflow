@@ -48,9 +48,9 @@ export function getDayOfWeek(date: Date): number {
   return jsDay === 0 ? 6 : jsDay - 1;
 }
 
-/** Calculate minutes between two Dates */
+/** Calculate whole elapsed minutes between two Dates (truncates seconds). */
 export function minutesBetween(start: Date, end: Date): number {
-  return Math.round((end.getTime() - start.getTime()) / 60000);
+  return Math.floor((end.getTime() - start.getTime()) / 60000);
 }
 
 /** Create a Date from a work date + "HH:MM" time string */

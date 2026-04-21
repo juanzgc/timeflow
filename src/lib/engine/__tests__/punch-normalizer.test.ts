@@ -3,8 +3,9 @@ import { normalizePunches } from "../punch-normalizer";
 import { colombiaStartOfDay, colSetHours, colHours, colMinutes } from "@/lib/timezone";
 
 function d(dateStr: string, time: string): Date {
-  const [h, m] = time.split(":").map(Number);
-  return colSetHours(colombiaStartOfDay(dateStr), h, m, 0);
+  const parts = time.split(":").map(Number);
+  const [h, m, s = 0] = parts;
+  return colSetHours(colombiaStartOfDay(dateStr), h, m, s);
 }
 
 describe("normalizePunches", () => {
@@ -24,7 +25,7 @@ describe("normalizePunches", () => {
     expect(result.lateMinutes).toBe(0);
   });
 
-  it("uses actual time for late arrival", () => {
+  it("ceils late arrival to next 15-min block (22 min late → 10:30)", () => {
     const result = normalizePunches(
       d("2026-04-13", "10:22"),
       d("2026-04-13", "17:00"),
@@ -34,8 +35,24 @@ describe("normalizePunches", () => {
       false,
     );
     expect(colHours(result.effectiveIn)).toBe(10);
-    expect(colMinutes(result.effectiveIn)).toBe(22);
+    expect(colMinutes(result.effectiveIn)).toBe(30);
     expect(result.lateMinutes).toBe(22);
+  });
+
+  it("truncates seconds when computing lateMinutes (08:03:35 → 3 min late)", () => {
+    const result = normalizePunches(
+      d("2026-04-13", "08:03:35"),
+      d("2026-04-13", "15:00"),
+      "08:00",
+      "15:00",
+      workDate,
+      false,
+    );
+    // 3 min 35 sec late → whole elapsed minutes = 3 (not rounded up to 4)
+    expect(result.lateMinutes).toBe(3);
+    // effectiveIn still snaps to next 15-min block → 08:15
+    expect(colHours(result.effectiveIn)).toBe(8);
+    expect(colMinutes(result.effectiveIn)).toBe(15);
   });
 
   it("floors excess to 15-min blocks — 12 min rounds to 0", () => {
