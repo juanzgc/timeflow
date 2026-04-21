@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { punchLogs, punchCorrections } from "@/drizzle/schema";
 import { auth } from "@/auth";
 import { recalcAndInvalidate } from "@/lib/attendance/invalidate";
+import { getBusinessDay, formatDateISO } from "@/lib/engine/time-utils";
 
 export async function PUT(
   request: Request,
@@ -42,7 +43,10 @@ export async function PUT(
   }
 
   const newPunchDate = new Date(punchTime);
-  const workDate = `${newPunchDate.getFullYear()}-${String(newPunchDate.getMonth() + 1).padStart(2, "0")}-${String(newPunchDate.getDate()).padStart(2, "0")}`;
+  // workDate = business day (6am–6am), not calendar date. A pre-6am punch
+  // belongs to the PREVIOUS business day. Using raw `getDate()` would also
+  // introduce a server-local-timezone bug on non-UTC-5 hosts.
+  const workDate = formatDateISO(getBusinessDay(newPunchDate));
 
   // Update punch
   const [updated] = await db
@@ -63,8 +67,7 @@ export async function PUT(
       correctedBy: session.user.name ?? "admin",
     });
 
-    const oldDate = original.punchTime;
-    const oldWorkDate = `${oldDate.getFullYear()}-${String(oldDate.getMonth() + 1).padStart(2, "0")}-${String(oldDate.getDate()).padStart(2, "0")}`;
+    const oldWorkDate = formatDateISO(getBusinessDay(original.punchTime));
     const startDate = oldWorkDate < workDate ? oldWorkDate : workDate;
     const endDate = oldWorkDate < workDate ? workDate : oldWorkDate;
 

@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { punchLogs, punchCorrections, employees, dailyAttendance } from "@/drizzle/schema";
 import { auth } from "@/auth";
 import { recalcAndInvalidate } from "@/lib/attendance/invalidate";
+import { getBusinessDay, formatDateISO } from "@/lib/engine/time-utils";
 
 export async function POST(request: Request) {
   const session = await auth();
@@ -40,8 +41,10 @@ export async function POST(request: Request) {
   }
 
   const punchDate = new Date(punchTime);
-  const computedWorkDate =
-    `${punchDate.getFullYear()}-${String(punchDate.getMonth() + 1).padStart(2, "0")}-${String(punchDate.getDate()).padStart(2, "0")}`;
+  // workDate = business day (6am–6am). A pre-6am punch belongs to the
+  // previous business day. Using raw `getDate()` would also misfire on
+  // non-UTC-5 server timezones.
+  const computedWorkDate = formatDateISO(getBusinessDay(punchDate));
 
   const [inserted] = await db
     .insert(punchLogs)

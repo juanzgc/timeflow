@@ -1,10 +1,12 @@
 import { NextResponse } from "next/server";
-import { and, eq, gte, lte } from "drizzle-orm";
+import { and, eq, gte, lt, lte } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { dailyAttendance, employees, punchLogs, punchCorrections } from "@/drizzle/schema";
 import { auth } from "@/auth";
 import { calculateAttendance } from "@/lib/engine/attendance-calculator";
 import { invalidateAttendance } from "@/lib/attendance/invalidate";
+import { colombiaStartOfDay, colAddDays, colSetHours } from "@/lib/timezone";
+import { BUSINESS_DAY_START_HOUR } from "@/lib/engine/time-utils";
 
 export async function GET(
   request: Request,
@@ -145,11 +147,19 @@ export async function DELETE(
     return NextResponse.json({ error: "Employee not found" }, { status: 404 });
   }
 
-  // Delete punch logs for this empCode within the work date window
-  // Use start of work date to end of next day to cover midnight-crossing shifts
-  const dayStart = new Date(workDate + "T00:00:00-05:00");
-  const dayEnd = new Date(workDate + "T00:00:00-05:00");
-  dayEnd.setDate(dayEnd.getDate() + 2);
+  // Delete punch logs that belong to this business day only. Business day
+  // runs 06:00 COT → next-day 06:00 COT, so a "clock-out next day" tail
+  // (e.g. 03:43 on the calendar day after) is included, while the next
+  // business day's clock-in at 16:59 is NOT. A previous calendar-day-based
+  // window bled into the adjacent BD and wiped its punches.
+  const dayStart = colSetHours(
+    colombiaStartOfDay(workDate),
+    BUSINESS_DAY_START_HOUR,
+  );
+  const dayEndExclusive = colSetHours(
+    colAddDays(colombiaStartOfDay(workDate), 1),
+    BUSINESS_DAY_START_HOUR,
+  );
 
   await db
     .delete(punchLogs)
@@ -157,7 +167,7 @@ export async function DELETE(
       and(
         eq(punchLogs.empCode, emp.empCode),
         gte(punchLogs.punchTime, dayStart),
-        lte(punchLogs.punchTime, dayEnd),
+        lt(punchLogs.punchTime, dayEndExclusive),
       ),
     );
 
