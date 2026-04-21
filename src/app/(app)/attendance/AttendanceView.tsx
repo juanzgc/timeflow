@@ -11,21 +11,14 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { ChevronDownIcon, ChevronRightIcon, PencilIcon, RefreshCwIcon } from "lucide-react";
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip";
 import { formatMins, formatTime, getDayName } from "@/lib/format";
+import { todayColombiaISO } from "@/lib/timezone";
 import type {
   EmployeeSummaryRow,
-  AttendanceSummary,
   DailyRecord,
   GroupRow,
 } from "@/lib/attendance/queries";
@@ -43,7 +36,6 @@ type Props = {
   endDate: string;
   groupId: string;
   groups: GroupRow[];
-  summary: AttendanceSummary;
   employees: EmployeeSummaryRow[];
   recordsByEmployee: Record<number, DailyRecord[]>;
 };
@@ -53,10 +45,50 @@ export default function AttendanceView({
   endDate,
   groupId,
   groups,
-  summary,
   employees,
   recordsByEmployee,
 }: Props) {
+  const baseFiltered =
+    groupId === "all"
+      ? employees
+      : groupId === "unassigned"
+        ? employees.filter((e) => !e.groupId)
+        : employees.filter((e) => e.groupId === Number(groupId));
+
+  const today = todayColombiaISO();
+  const todayInRange = startDate <= today && today <= endDate;
+
+  const filteredEmployees = todayInRange
+    ? [...baseFiltered].sort((a, b) => {
+        const ra = (recordsByEmployee[a.employeeId] ?? []).find(
+          (r) => r.workDate === today,
+        );
+        const rb = (recordsByEmployee[b.employeeId] ?? []).find(
+          (r) => r.workDate === today,
+        );
+        const rank = (r: DailyRecord | undefined) =>
+          r?.clockIn ? 0 : r?.scheduledStart ? 1 : 2;
+        const diff = rank(ra) - rank(rb);
+        if (diff !== 0) return diff;
+        if (ra?.clockIn && rb?.clockIn) {
+          return (
+            new Date(ra.clockIn).getTime() - new Date(rb.clockIn).getTime()
+          );
+        }
+        if (ra?.scheduledStart && rb?.scheduledStart) {
+          return ra.scheduledStart.localeCompare(rb.scheduledStart);
+        }
+        return a.firstName.localeCompare(b.firstName);
+      })
+    : baseFiltered;
+
+  const summary = {
+    totalWorkedMins: filteredEmployees.reduce((s, r) => s + r.totalWorkedMins, 0),
+    totalLateMins: filteredEmployees.reduce((s, r) => s + r.totalLateMins, 0),
+    totalExcessMins: filteredEmployees.reduce((s, r) => s + r.totalExcessMins, 0),
+  };
+
+  const unassignedCount = employees.filter((e) => !e.groupId).length;
   const router = useRouter();
   const pathname = usePathname();
   const [pending, startTransition] = useTransition();
@@ -143,27 +175,6 @@ export default function AttendanceView({
             className="h-9 w-40 text-xs"
           />
         </div>
-        <div>
-          <label className="mb-1 block text-[11px] font-medium text-muted-foreground">
-            Grupo
-          </label>
-          <Select
-            value={groupId}
-            onValueChange={(v) => updateFilter({ groupId: v ?? "all" })}
-          >
-            <SelectTrigger className="h-9 w-40 text-xs">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todos los grupos</SelectItem>
-              {groups.map((g) => (
-                <SelectItem key={g.id} value={String(g.id)}>
-                  {g.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
         <div className="ml-auto flex items-center gap-3">
           {recalcMessage && (
             <span
@@ -189,6 +200,32 @@ export default function AttendanceView({
             {recalcing ? "Recalculando..." : "Recalcular"}
           </Button>
         </div>
+      </div>
+
+      {/* Group filter tabs */}
+      <div className="flex items-center gap-1.5 overflow-x-auto">
+        <FilterTab
+          label="Todos"
+          count={employees.length}
+          active={groupId === "all"}
+          onClick={() => updateFilter({ groupId: "all" })}
+        />
+        {groups.map((g) => (
+          <FilterTab
+            key={g.id}
+            label={g.name}
+            count={employees.filter((e) => e.groupId === g.id).length}
+            color={GROUP_COLORS[g.name]}
+            active={groupId === String(g.id)}
+            onClick={() => updateFilter({ groupId: String(g.id) })}
+          />
+        ))}
+        <FilterTab
+          label="Sin asignar"
+          count={unassignedCount}
+          active={groupId === "unassigned"}
+          onClick={() => updateFilter({ groupId: "unassigned" })}
+        />
       </div>
 
       {/* Summary Cards */}
@@ -237,12 +274,12 @@ export default function AttendanceView({
           <CardTitle className="text-sm font-bold tracking-[-0.01em]">
             Marcaciones por empleado
             <span className="ml-2 text-xs font-normal text-muted-foreground">
-              ({employees.length})
+              ({filteredEmployees.length})
             </span>
           </CardTitle>
         </CardHeader>
         <CardContent className="p-0">
-          {employees.length === 0 ? (
+          {filteredEmployees.length === 0 ? (
             <div className="flex h-32 items-center justify-center text-xs text-muted-foreground">
               Sin registros de marcación para este rango de fechas
             </div>
@@ -262,7 +299,7 @@ export default function AttendanceView({
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {employees.map((emp) => {
+                {filteredEmployees.map((emp) => {
                   const isExpanded = expandedId === emp.employeeId;
                   const gc = emp.groupName
                     ? GROUP_COLORS[emp.groupName]
@@ -577,4 +614,42 @@ function formatShiftTime(t: string): string {
   const ampm = h >= 12 ? "PM" : "AM";
   const h12 = h === 0 ? 12 : h > 12 ? h - 12 : h;
   return `${h12}:${String(m).padStart(2, "0")} ${ampm}`;
+}
+
+function FilterTab({
+  label,
+  count,
+  color,
+  active,
+  onClick,
+}: {
+  label: string;
+  count: number;
+  color?: string;
+  active: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[12px] font-semibold transition-colors ${
+        active
+          ? "bg-foreground text-background"
+          : "bg-card text-muted-foreground shadow-sm hover:text-foreground"
+      }`}
+    >
+      {color && !active && (
+        <span
+          className="size-2 rounded-full"
+          style={{ backgroundColor: color }}
+        />
+      )}
+      {label}
+      <span
+        className={`text-[11px] ${active ? "text-background/60" : "text-muted-foreground/60"}`}
+      >
+        {count}
+      </span>
+    </button>
+  );
 }

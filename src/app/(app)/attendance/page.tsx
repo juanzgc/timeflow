@@ -1,5 +1,4 @@
 import {
-  computeTotals,
   getDailyRecords,
   getEmployeesSummary,
   getGroups,
@@ -23,15 +22,13 @@ export default async function AttendancePage({
   const startDate = sp.startDate ?? currentWeekMonday();
   const endDate = sp.endDate ?? currentWeekSunday();
   const groupId = sp.groupId ?? "all";
-  const groupIdNum = groupId === "all" ? null : Number(groupId);
 
   const [employees, dailyRecords, groups] = await Promise.all([
-    getEmployeesSummary(startDate, endDate, groupIdNum),
+    getEmployeesSummary(startDate, endDate, null),
     getDailyRecords(startDate, endDate),
     getGroups(),
   ]);
 
-  const summary = computeTotals(employees);
   const recordsByEmployee = groupRecordsByEmployee(dailyRecords);
 
   return (
@@ -40,7 +37,6 @@ export default async function AttendancePage({
       endDate={endDate}
       groupId={groupId}
       groups={groups}
-      summary={summary}
       employees={employees}
       recordsByEmployee={recordsByEmployee}
     />
