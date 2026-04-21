@@ -30,6 +30,16 @@ export async function PUT(
     compDebitMins,
   } = body;
 
+  if (
+    typeof breakMinutes === "number" &&
+    (!Number.isInteger(breakMinutes) || breakMinutes < 0 || breakMinutes % 15 !== 0)
+  ) {
+    return NextResponse.json(
+      { error: "Descanso must be a multiple of 15 minutes (0, 15, 30, 45, 60, …)" },
+      { status: 400 },
+    );
+  }
+
   // Get the existing shift
   const [existing] = await db
     .select()

@@ -243,6 +243,7 @@ export function ShiftModal({
                     min={0}
                     value={break1}
                     onChange={(e) => setBreak1(Number(e.target.value))}
+                    onWheel={(e) => e.currentTarget.blur()}
                     className="font-mono text-sm"
                   />
                 </div>
@@ -302,6 +303,7 @@ export function ShiftModal({
                     min={0}
                     value={break2}
                     onChange={(e) => setBreak2(Number(e.target.value))}
+                    onWheel={(e) => e.currentTarget.blur()}
                     className="w-24 font-mono text-sm"
                   />
                 </div>

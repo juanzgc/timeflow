@@ -36,6 +36,16 @@ export async function POST(request: Request) {
     );
   }
 
+  if (
+    typeof breakMinutes === "number" &&
+    (!Number.isInteger(breakMinutes) || breakMinutes < 0 || breakMinutes % 15 !== 0)
+  ) {
+    return NextResponse.json(
+      { error: "Descanso must be a multiple of 15 minutes (0, 15, 30, 45, 60, …)" },
+      { status: 400 },
+    );
+  }
+
   // Get existing shifts for this employee on this day
   const existing = await db
     .select()

@@ -90,28 +90,16 @@ export function classifyDay(
     minsFestivoNight += classified.festivoNight;
   }
 
-  // Subtract break proportionally from the largest bucket
-  if (scheduledBreakMins > 0) {
-    const total = minsOrdinaryDay + minsNocturno + minsFestivoDay + minsFestivoNight;
-    if (total > 0) {
-      const ratio = (total - scheduledBreakMins) / total;
-      minsOrdinaryDay = Math.round(minsOrdinaryDay * ratio);
-      minsNocturno = Math.round(minsNocturno * ratio);
-      minsFestivoDay = Math.round(minsFestivoDay * ratio);
-      minsFestivoNight = Math.round(minsFestivoNight * ratio);
-    }
-  }
-
-  // Calculate daily excess pool
+  // Extract overtime tail FIRST (before break subtraction). Break time falls
+  // inside scheduled hours, not overtime — so subtracting break proportionally
+  // across the full timeline before removing the tail caused the overtime
+  // portion to also shrink, leaving stray minutes (e.g. 1m RN + HEN short by
+  // one minute) or negative recargo buckets.
   const excessMins = Math.max(0, totalWorkedMins - dailyLimitMins);
   let excessHedMins = 0;
   let excessHenMins = 0;
 
   if (excessMins > 0) {
-    // Excess comes from the tail end of the shift.
-    // Classify the tail into the full 4 buckets so we can subtract
-    // from the recargo buckets — a minute is either recargo OR overtime,
-    // never both.
     const tail = classifyTail(workedSegments, excessMins, workDate);
 
     excessHedMins = tail.ordinaryDay + tail.festivoDay;
@@ -122,6 +110,18 @@ export function classifyDay(
     minsNocturno -= tail.nocturno;
     minsFestivoDay -= tail.festivoDay;
     minsFestivoNight -= tail.festivoNight;
+  }
+
+  // Subtract break proportionally from the remaining within-schedule buckets
+  if (scheduledBreakMins > 0) {
+    const total = minsOrdinaryDay + minsNocturno + minsFestivoDay + minsFestivoNight;
+    if (total > 0) {
+      const ratio = (total - scheduledBreakMins) / total;
+      minsOrdinaryDay = Math.round(minsOrdinaryDay * ratio);
+      minsNocturno = Math.round(minsNocturno * ratio);
+      minsFestivoDay = Math.round(minsFestivoDay * ratio);
+      minsFestivoNight = Math.round(minsFestivoNight * ratio);
+    }
   }
 
   return {
