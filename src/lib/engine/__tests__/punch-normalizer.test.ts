@@ -78,7 +78,7 @@ describe("normalizePunches", () => {
     expect(colMinutes(result.effectiveOut!)).toBe(15);
   });
 
-  it("computes early leave minutes", () => {
+  it("floors early leave to previous 15-min block", () => {
     const result = normalizePunches(
       d("2026-04-13", "10:00"),
       d("2026-04-13", "16:58"),
@@ -87,9 +87,38 @@ describe("normalizePunches", () => {
       workDate,
       false,
     );
+    // 16:58 floors to 16:45 — only complete 15-min blocks are payable
     expect(colHours(result.effectiveOut!)).toBe(16);
-    expect(colMinutes(result.effectiveOut!)).toBe(58);
-    expect(result.earlyLeaveMinutes).toBe(2);
+    expect(colMinutes(result.effectiveOut!)).toBe(45);
+    expect(result.earlyLeaveMinutes).toBe(15);
+  });
+
+  it("leaves effective_out unchanged when clock-out is already on a 15-min boundary", () => {
+    const result = normalizePunches(
+      d("2026-04-13", "10:00"),
+      d("2026-04-13", "16:45"),
+      "10:00",
+      "17:00",
+      workDate,
+      false,
+    );
+    expect(colHours(result.effectiveOut!)).toBe(16);
+    expect(colMinutes(result.effectiveOut!)).toBe(45);
+    expect(result.earlyLeaveMinutes).toBe(15);
+  });
+
+  it("example from bug report: 10:24 PM clock-out floors to 10:15 PM", () => {
+    const result = normalizePunches(
+      d("2026-04-13", "16:06"),
+      d("2026-04-13", "22:24"),
+      "16:00",
+      "23:00",
+      workDate,
+      false,
+    );
+    expect(colHours(result.effectiveOut!)).toBe(22);
+    expect(colMinutes(result.effectiveOut!)).toBe(15);
+    expect(result.earlyLeaveMinutes).toBe(45);
   });
 
   it("handles midnight-crossing shift", () => {

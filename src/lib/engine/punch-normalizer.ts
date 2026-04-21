@@ -5,7 +5,8 @@
  * by applying business rules:
  *   - Clock-in: pay from the LATER of scheduled start or actual arrival,
  *     rounded UP to the next 15-min boundary if late
- *   - Clock-out before schedule: exact (early leave)
+ *   - Clock-out before schedule: floored DOWN to previous 15-min boundary
+ *     (only complete 15-min blocks are payable)
  *   - Clock-out after schedule: only full 15-min blocks count
  *
  * For split shifts: normalize against segment 1 start and segment 2 end.
@@ -82,9 +83,12 @@ export function normalizePunches(
   let earlyLeaveMinutes = 0;
 
   if (clockOut.getTime() <= schedEnd.getTime()) {
-    // Clock-out at or before scheduled end — exact, no rounding
-    effectiveOut = new Date(clockOut);
-    earlyLeaveMinutes = Math.max(0, minutesBetween(clockOut, schedEnd));
+    // Clock-out at or before scheduled end — floor to previous 15-min block
+    // (only complete blocks are payable, matching the overtime tail rule).
+    const clockOutEpochMins = Math.floor(clockOut.getTime() / 60000);
+    const flooredEpochMins = Math.floor(clockOutEpochMins / 15) * 15;
+    effectiveOut = new Date(flooredEpochMins * 60000);
+    earlyLeaveMinutes = Math.max(0, minutesBetween(effectiveOut, schedEnd));
   } else {
     // Clock-out AFTER scheduled end — apply 15-min floor
     const excessRawMins = minutesBetween(schedEnd, clockOut);

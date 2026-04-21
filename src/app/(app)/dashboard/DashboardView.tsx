@@ -28,6 +28,7 @@ import {
   formatMinsAsHours,
   formatTime,
   formatDateFull,
+  formatDateShort,
   formatPeriodRange,
 } from "@/lib/format";
 import { COL_TZ } from "@/lib/timezone";
@@ -205,16 +206,18 @@ export default function DashboardView({
               {alerts.missingPunches.length}
             </span>
           </div>
-          {alerts.missingPunches.map((mp) => (
+          {[...alerts.missingPunches]
+            .sort((a, b) => (b.date ?? "").localeCompare(a.date ?? ""))
+            .map((mp, i) => (
             <div
-              key={mp.employeeId}
+              key={`${mp.employeeId}-${mp.date}-${i}`}
               className="flex items-center justify-between border-t border-warning/15 py-2"
             >
               <span className="text-[12.5px] font-medium text-warning-text">
-                {mp.name} — {mp.detail}
+                {mp.name} — {mp.date ? formatDateShort(mp.date) : "—"} — {mp.detail}
               </span>
               <Link
-                href={`/employees/${mp.employeeId}?tab=attendance&date=${mp.date}&fix=${mp.detail === "no clock-in" ? "clock-in" : mp.detail === "no clock-out" ? "clock-out" : "both"}`}
+                href={`/employees/${mp.employeeId}?tab=attendance&date=${mp.date}&fix=${mp.detail === "Sin marcación entrada" ? "clock-in" : mp.detail === "Sin marcación salida" ? "clock-out" : "both"}`}
               >
                 <Button
                   variant="outline"

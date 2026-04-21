@@ -233,7 +233,7 @@ export default function PayrollPage() {
                           {mp.name} — {mp.workDate} — {mp.detail}
                         </span>
                         <Link
-                          href={`/employees/${mp.employeeId}?tab=attendance&date=${mp.workDate}&fix=${mp.detail === "no clock-in" ? "clock-in" : mp.detail === "no clock-out" ? "clock-out" : "both"}`}
+                          href={`/employees/${mp.employeeId}?tab=attendance&date=${mp.workDate}&fix=${mp.detail === "Sin marcación entrada" ? "clock-in" : mp.detail === "Sin marcación salida" ? "clock-out" : "both"}`}
                         >
                           <Button
                             variant="outline"
@@ -307,7 +307,7 @@ export default function PayrollPage() {
                   {mp.name} — {mp.date} — {mp.detail}
                 </span>
                 <Link
-                  href={`/employees/${mp.employeeId}?tab=attendance&date=${mp.date}&fix=${mp.detail === "no clock-in" ? "clock-in" : mp.detail === "no clock-out" ? "clock-out" : "both"}`}
+                  href={`/employees/${mp.employeeId}?tab=attendance&date=${mp.date}&fix=${mp.detail === "Sin marcación entrada" ? "clock-in" : mp.detail === "Sin marcación salida" ? "clock-out" : "both"}`}
                 >
                   <Button
                     variant="outline"

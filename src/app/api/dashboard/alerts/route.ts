@@ -209,10 +209,10 @@ export async function GET() {
       name: `${mp.firstName} ${mp.lastName}`,
       date: mp.workDate,
       detail: !mp.clockIn
-        ? "no clock-in"
+        ? "Sin marcación entrada"
         : !mp.clockOut
-          ? "no clock-out"
-          : "missing punch",
+          ? "Sin marcación salida"
+          : "Marcación faltante",
     })),
     overduePeriods,
     hasActivePeriod: activePeriodRow.length > 0,

@@ -127,10 +127,10 @@ export async function POST(request: Request) {
           name: `${mp.firstName} ${mp.lastName}`,
           workDate: mp.workDate,
           detail: !mp.clockIn
-            ? "no clock-in"
+            ? "Sin marcación entrada"
             : !mp.clockOut
-              ? "no clock-out"
-              : "missing punch",
+              ? "Sin marcación salida"
+              : "Marcación faltante",
         })),
       },
       { status: 400 },
