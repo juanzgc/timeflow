@@ -88,10 +88,24 @@ export default function DashboardView({
 
   const { kpis, attendance, date: dateStr } = today;
 
-  const filtered =
+  const baseFiltered =
     activeGroup === "all"
       ? attendance
       : attendance.filter((r) => r.groupName === activeGroup);
+
+  const rank = (r: TodayAttendanceRow) => {
+    if (r.clockIn) return 0;
+    if (r.status === "day-off" || r.status === "comp-day-off") return 2;
+    return 1;
+  };
+  const filtered = [...baseFiltered].sort((a, b) => {
+    const diff = rank(a) - rank(b);
+    if (diff !== 0) return diff;
+    if (a.clockIn && b.clockIn) {
+      return new Date(a.clockIn).getTime() - new Date(b.clockIn).getTime();
+    }
+    return a.firstName.localeCompare(b.firstName);
+  });
 
   const groups = [
     ...new Set(attendance.map((r) => r.groupName).filter(Boolean)),

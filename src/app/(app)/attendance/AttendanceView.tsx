@@ -16,7 +16,6 @@ import { Button } from "@/components/ui/button";
 import { ChevronDownIcon, ChevronRightIcon, PencilIcon, RefreshCwIcon } from "lucide-react";
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip";
 import { formatMins, formatTime, getDayName } from "@/lib/format";
-import { todayColombiaISO } from "@/lib/timezone";
 import type {
   EmployeeSummaryRow,
   DailyRecord,
@@ -48,39 +47,12 @@ export default function AttendanceView({
   employees,
   recordsByEmployee,
 }: Props) {
-  const baseFiltered =
+  const filteredEmployees =
     groupId === "all"
       ? employees
       : groupId === "unassigned"
         ? employees.filter((e) => !e.groupId)
         : employees.filter((e) => e.groupId === Number(groupId));
-
-  const today = todayColombiaISO();
-  const todayInRange = startDate <= today && today <= endDate;
-
-  const filteredEmployees = todayInRange
-    ? [...baseFiltered].sort((a, b) => {
-        const ra = (recordsByEmployee[a.employeeId] ?? []).find(
-          (r) => r.workDate === today,
-        );
-        const rb = (recordsByEmployee[b.employeeId] ?? []).find(
-          (r) => r.workDate === today,
-        );
-        const rank = (r: DailyRecord | undefined) =>
-          r?.clockIn ? 0 : r?.scheduledStart ? 1 : 2;
-        const diff = rank(ra) - rank(rb);
-        if (diff !== 0) return diff;
-        if (ra?.clockIn && rb?.clockIn) {
-          return (
-            new Date(ra.clockIn).getTime() - new Date(rb.clockIn).getTime()
-          );
-        }
-        if (ra?.scheduledStart && rb?.scheduledStart) {
-          return ra.scheduledStart.localeCompare(rb.scheduledStart);
-        }
-        return a.firstName.localeCompare(b.firstName);
-      })
-    : baseFiltered;
 
   const summary = {
     totalWorkedMins: filteredEmployees.reduce((s, r) => s + r.totalWorkedMins, 0),
