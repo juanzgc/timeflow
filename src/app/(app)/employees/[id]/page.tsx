@@ -2,6 +2,7 @@
 
 import { Suspense, useEffect, useState, useCallback, useMemo } from "react";
 import { useParams, useSearchParams } from "next/navigation";
+import { useSession } from "next-auth/react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Table,
@@ -50,6 +51,7 @@ import {
 import { Label } from "@/components/ui/label";
 import { PunchCorrectionModal } from "@/components/attendance/PunchCorrectionModal";
 import { EditEmployeeModal } from "@/components/employees/EditEmployeeModal";
+import { ResyncEmployeeModal } from "@/components/employees/ResyncEmployeeModal";
 
 const DAY_LABELS = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"];
 const DAY_LABELS_SHORT = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
@@ -230,6 +232,8 @@ export default function EmployeeDetailPage() {
 function EmployeeDetailContent() {
   const params = useParams();
   const searchParams = useSearchParams();
+  const { data: session } = useSession();
+  const isSuperadmin = session?.user?.role === "superadmin";
   const id = params.id as string;
 
   // Query param deep links
@@ -263,6 +267,7 @@ function EmployeeDetailContent() {
   }>({ isOpen: false, record: null, action: "add_both" });
 
   const [editModalOpen, setEditModalOpen] = useState(false);
+  const [resyncOpen, setResyncOpen] = useState(false);
 
   // Delete attendance state
   const [deleteTarget, setDeleteTarget] = useState<DailyRecord | null>(null);
@@ -1029,6 +1034,17 @@ function EmployeeDetailContent() {
           <RefreshCwIcon className="size-3.5" />
           Sincronizar desde BioTime
         </Button>
+        {isSuperadmin && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setResyncOpen(true)}
+            title="Borra y reemplaza las marcaciones del empleado en un rango con las de BioTime (destructivo)"
+          >
+            <Trash2Icon className="size-3.5" />
+            Forzar re-sync (rango)
+          </Button>
+        )}
       </div>
 
       {/* ── Modals ─────────────────────────────────────────────────────── */}
@@ -1055,6 +1071,19 @@ function EmployeeDetailContent() {
           onSaved={handleEditSaved}
           employee={emp}
           groups={groups}
+        />
+      )}
+
+      {resyncOpen && isSuperadmin && (
+        <ResyncEmployeeModal
+          isOpen={resyncOpen}
+          onClose={() => {
+            setResyncOpen(false);
+            fetchEmployee();
+            fetchAttendance();
+          }}
+          employeeId={emp.id}
+          employeeName={`${emp.firstName} ${emp.lastName}`}
         />
       )}
 

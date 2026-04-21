@@ -6,7 +6,7 @@ import type { BioTimeTransaction, TransactionSyncResult } from "./types";
 import { colFullYear, colMonth, colDate, colHours, colMinutes } from "@/lib/timezone";
 
 /** Parse a BioTime timestamp (no timezone) as Colombia time (UTC-5). */
-function parseColombia(timestamp: string): Date {
+export function parseColombia(timestamp: string): Date {
   // BioTime sends "YYYY-MM-DD HH:mm:ss" with no offset — it's Colombia local time.
   // Append the offset so it's parsed correctly regardless of server timezone.
   return new Date(timestamp.replace(" ", "T") + "-05:00");
@@ -16,7 +16,7 @@ function parseColombia(timestamp: string): Date {
  * Format a Date (or ISO string) as Colombia local time for BioTime API params.
  * BioTime expects timestamps in Colombia local time (no offset suffix).
  */
-function formatForBioTime(d: Date): string {
+export function formatForBioTime(d: Date): string {
   const y = colFullYear(d);
   const mo = String(colMonth(d) + 1).padStart(2, "0");
   const day = String(colDate(d)).padStart(2, "0");
