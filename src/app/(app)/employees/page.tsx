@@ -18,6 +18,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { flushCacheAction } from "@/lib/actions/flush-cache";
 import { Input } from "@/components/ui/input";
 import { UsersIcon, CheckIcon, XIcon, PencilIcon, ChevronRightIcon } from "lucide-react";
 import Link from "next/link";
@@ -118,6 +119,7 @@ export default function EmployeesPage() {
       body: JSON.stringify(body),
     });
 
+    await flushCacheAction(["employees"]);
     cancelEdit();
     fetchData();
   };

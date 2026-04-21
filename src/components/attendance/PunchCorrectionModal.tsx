@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { formatDateFull, formatTime } from "@/lib/format";
+import { flushCacheAction } from "@/lib/actions/flush-cache";
 
 type CorrectionAction = "add_in" | "add_out" | "edit_in" | "edit_out" | "add_both";
 
@@ -152,6 +153,7 @@ export function PunchCorrectionModal({
         return;
       }
 
+      await flushCacheAction(["attendance", "comp-balances"]);
       onSaved();
       onClose();
     } catch {

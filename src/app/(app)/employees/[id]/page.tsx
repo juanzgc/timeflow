@@ -52,6 +52,7 @@ import { Label } from "@/components/ui/label";
 import { PunchCorrectionModal } from "@/components/attendance/PunchCorrectionModal";
 import { EditEmployeeModal } from "@/components/employees/EditEmployeeModal";
 import { ResyncEmployeeModal } from "@/components/employees/ResyncEmployeeModal";
+import { flushCacheAction } from "@/lib/actions/flush-cache";
 
 const DAY_LABELS = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"];
 const DAY_LABELS_SHORT = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
@@ -1027,6 +1028,7 @@ function EmployeeDetailContent() {
           size="sm"
           onClick={async () => {
             await fetch("/api/biotime/sync", { method: "POST" });
+            await flushCacheAction(["attendance", "employees"]);
             fetchEmployee();
             fetchAttendance();
           }}
@@ -1165,6 +1167,7 @@ function EmployeeDetailContent() {
                     setDeleteError(data.error || "Error al eliminar");
                     return;
                   }
+                  await flushCacheAction(["attendance", "comp-balances"]);
                   setDeleteTarget(null);
                   setDeleteReason("");
                   setDeleteError("");

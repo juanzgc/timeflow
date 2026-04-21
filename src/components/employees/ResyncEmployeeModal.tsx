@@ -12,6 +12,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { flushCacheAction } from "@/lib/actions/flush-cache";
 
 type ResyncResult = {
   success: boolean;
@@ -78,6 +79,7 @@ export function ResyncEmployeeModal({
         setError(data.error ?? "Error en la re-sincronización");
         return;
       }
+      await flushCacheAction(["attendance", "comp-balances"]);
       setResult(data as ResyncResult);
     } catch {
       setError("Error de red");

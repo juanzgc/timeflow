@@ -24,6 +24,7 @@ import { Input } from "@/components/ui/input";
 import { PlusIcon, TrashIcon, EyeIcon, AlertTriangleIcon, InfoIcon, ArrowRightIcon } from "lucide-react";
 import Link from "next/link";
 import { formatCOP, formatPeriodRange } from "@/lib/format";
+import { flushCacheAction } from "@/lib/actions/flush-cache";
 
 type AlertData = {
   missingPunches: { employeeId: number; name: string; date?: string; detail: string }[];
@@ -101,6 +102,7 @@ export default function PayrollPage() {
         }),
       });
       if (res.ok) {
+        await flushCacheAction(["attendance"]);
         setCreateOpen(false);
         setNewStart("");
         setNewEnd("");
@@ -119,6 +121,7 @@ export default function PayrollPage() {
     setDeleting(true);
     try {
       await fetch(`/api/payroll/${periodId}`, { method: "DELETE" });
+      await flushCacheAction(["attendance"]);
       setDeleteId(null);
       fetchPeriods();
     } finally {

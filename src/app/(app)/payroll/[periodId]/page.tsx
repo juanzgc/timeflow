@@ -32,6 +32,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { formatMins, formatCOP, formatPeriodRange, formatMinsAsHours } from "@/lib/format";
+import { flushCacheAction } from "@/lib/actions/flush-cache";
 
 const GROUP_COLORS: Record<string, string> = {
   Kitchen: "var(--group-kitchen)",
@@ -200,6 +201,7 @@ export default function PeriodDetailPage() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ decisions }),
         });
+        await flushCacheAction(["comp-balances", "attendance"]);
       }
       await fetchPeriod();
     } finally {
@@ -211,6 +213,7 @@ export default function PeriodDetailPage() {
     setRecalculating(true);
     try {
       await fetch(`/api/payroll/${periodId}/recalculate`, { method: "POST" });
+      await flushCacheAction(["attendance"]);
       await fetchPeriod();
     } finally {
       setRecalculating(false);
@@ -237,6 +240,7 @@ export default function PeriodDetailPage() {
         });
         return;
       }
+      await flushCacheAction(["attendance", "comp-balances"]);
       setFinalizeOpen(false);
       await fetchPeriod();
     } finally {

@@ -19,7 +19,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
-import { ChevronDownIcon, ChevronRightIcon, PencilIcon } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { ChevronDownIcon, ChevronRightIcon, PencilIcon, RefreshCwIcon } from "lucide-react";
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip";
 import { formatMins, formatTime, getDayName } from "@/lib/format";
 import type {
@@ -28,6 +29,7 @@ import type {
   DailyRecord,
   GroupRow,
 } from "@/lib/attendance/queries";
+import { recalcAttendanceAction } from "./actions";
 
 const GROUP_COLORS: Record<string, string> = {
   Kitchen: "var(--group-kitchen)",
@@ -59,6 +61,34 @@ export default function AttendanceView({
   const pathname = usePathname();
   const [pending, startTransition] = useTransition();
   const [expandedId, setExpandedId] = useState<number | null>(null);
+  const [recalcing, setRecalcing] = useState(false);
+  const [recalcMessage, setRecalcMessage] = useState<
+    { kind: "success" | "error"; text: string } | null
+  >(null);
+
+  async function handleRecalculate() {
+    setRecalcing(true);
+    setRecalcMessage(null);
+    try {
+      const result = await recalcAttendanceAction(startDate, endDate);
+      if ("error" in result) {
+        setRecalcMessage({ kind: "error", text: result.error });
+        return;
+      }
+      setRecalcMessage({
+        kind: "success",
+        text: `Recalculados ${result.processed} días`,
+      });
+      startTransition(() => router.refresh());
+    } catch (err) {
+      setRecalcMessage({
+        kind: "error",
+        text: err instanceof Error ? err.message : "Error recalculando",
+      });
+    } finally {
+      setRecalcing(false);
+    }
+  }
 
   function updateFilter(next: { startDate?: string; endDate?: string; groupId?: string }) {
     const params = new URLSearchParams();
@@ -133,6 +163,31 @@ export default function AttendanceView({
               ))}
             </SelectContent>
           </Select>
+        </div>
+        <div className="ml-auto flex items-center gap-3">
+          {recalcMessage && (
+            <span
+              className={`text-[11px] font-medium ${
+                recalcMessage.kind === "success"
+                  ? "text-success"
+                  : "text-danger"
+              }`}
+            >
+              {recalcMessage.text}
+            </span>
+          )}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleRecalculate}
+            disabled={recalcing || pending}
+            className="h-9"
+          >
+            <RefreshCwIcon
+              className={`size-3.5 ${recalcing ? "animate-spin" : ""}`}
+            />
+            {recalcing ? "Recalculando..." : "Recalcular"}
+          </Button>
         </div>
       </div>
 

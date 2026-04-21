@@ -9,6 +9,7 @@ import { ShiftGrid } from "@/components/schedules/ShiftGrid";
 import { ShiftModal, type ShiftSaveData } from "@/components/schedules/ShiftModal";
 import { ScheduleActions } from "@/components/schedules/ScheduleActions";
 import { minsToHoursDisplay, getWeeklyScheduledMins, getDailyLimitMins } from "@/lib/schedule-utils";
+import { flushCacheAction } from "@/lib/actions/flush-cache";
 
 type Employee = {
   id: number;
@@ -203,6 +204,7 @@ export default function ScheduleEditorPage() {
     }
 
     setModal(null);
+    await flushCacheAction(["attendance", "comp-balances"]);
     fetchData();
   };
 
@@ -211,6 +213,7 @@ export default function ScheduleEditorPage() {
       await fetch(`/api/shifts/${id}`, { method: "DELETE" });
     }
     setModal(null);
+    await flushCacheAction(["attendance", "comp-balances"]);
     fetchData();
   };
 
@@ -224,6 +227,7 @@ export default function ScheduleEditorPage() {
       alert(err.error);
       return;
     }
+    await flushCacheAction(["attendance", "comp-balances"]);
     fetchData();
   };
 
@@ -233,6 +237,7 @@ export default function ScheduleEditorPage() {
     for (const s of data.shifts) {
       await fetch(`/api/shifts/${s.id}`, { method: "DELETE" });
     }
+    await flushCacheAction(["attendance", "comp-balances"]);
     fetchData();
   };
 

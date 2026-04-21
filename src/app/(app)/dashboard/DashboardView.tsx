@@ -32,6 +32,7 @@ import {
   formatPeriodRange,
 } from "@/lib/format";
 import { COL_TZ } from "@/lib/timezone";
+import { flushCacheAction } from "@/lib/actions/flush-cache";
 import type {
   TodayData,
   TodayAttendanceRow,
@@ -78,6 +79,7 @@ export default function DashboardView({
     setSyncing(true);
     try {
       await fetch("/api/biotime/sync", { method: "POST" });
+      await flushCacheAction(["attendance", "employees", "comp-balances"]);
       startTransition(() => router.refresh());
     } finally {
       setSyncing(false);

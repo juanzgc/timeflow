@@ -18,6 +18,7 @@ import {
   SelectContent,
   SelectItem,
 } from "@/components/ui/select";
+import { flushCacheAction } from "@/lib/actions/flush-cache";
 
 const DAY_OPTIONS = [
   { value: 0, label: "Lunes" },
@@ -116,6 +117,7 @@ export function EditEmployeeModal({
         return;
       }
 
+      await flushCacheAction(["employees"]);
       onSaved();
       onClose();
     } catch {
