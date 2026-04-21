@@ -564,6 +564,8 @@ async function upsertMinimalRecord(
         clockOut: null,
         effectiveIn: null,
         effectiveOut: null,
+        scheduledStart: null,
+        scheduledEnd: null,
         isMissingPunch: false,
         lateMinutes: 0,
         earlyLeaveMins: 0,
